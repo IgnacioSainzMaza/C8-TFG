@@ -59,6 +59,57 @@ int main(int argc, char** argv){
         SDL_RenderPresent(renderer);
     }
 
+
     
     return 0;
+}
+
+
+// Función que se encarga de inicializar todas las variables
+void initChip8(){
+    delay_timer = 0;
+    sound_timer = 0;
+    opcode = 0;
+    PC = 0x200;
+    I = 0;
+    sp = 0;
+
+    // memset es la asignación de memoria utilizada para las variables de tipo array.
+    memset(stack,0,16);
+    memset(memory,0,MEMORY);
+    memset(v,0,16);
+    memset(gfx,0,2048);
+    memset(keyboard,0,16);
+
+    // memcpy lo que hace es copiar en memory lo que hay en la variable fontset.
+    memcpy(memory,fontset, 80*sizeof(int8_t));
+}
+
+// Función de dibujo
+void draw(){
+    uint32_t pixels[64 * 32];
+    unsigned int x,y;
+
+    if (drawflag){
+        memset(pixels,0,(64*32)*4);
+        for(x=0;x<64;x++){
+            for (y=0;y<32;y++){
+
+                if (gfx[(x)+((y)*64)] ==1)
+                {
+                    pixels[(x) + ((y) * 64)] = UINT32_MAX;
+                }
+            }
+        }
+
+        SDL_UpdateTexture(screen, NULL, pixels, 64* sizeof(uint32_t));
+        SDL_Rect position;
+        position.x = 0;
+        position.y = 0;
+        position.w = 64;
+        position.h = 32;
+        SDL_RenderCopy(renderer,screen,NULL, &position);
+        SDL_RenderPresent(renderer);
+    }
+    drawflag = false;
 }
