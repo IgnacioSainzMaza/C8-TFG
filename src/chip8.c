@@ -26,8 +26,10 @@ int main(int argc, char** argv){
 
     SDL_Event event;
 
+    char title[256]; 
+    sprintf(title, "CHIP-8-TFG: %s", argv[1]);
     //SDL_CreateWindow -> Creates a window with the specified position,dimensions and flag
-    window = SDL_CreateWindow(("CHIP-8-TFG"), SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED, 640, 320, 0);
+    window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED, 640, 320, 0);
 
     //SDL_CreateRenderer -> Creates a 2D Rendering context for a window.
     renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
