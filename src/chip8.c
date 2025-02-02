@@ -305,22 +305,24 @@ void execute()
         // 0nnn no se añade en intérpretes modernos
         switch (opcode & 0x00FF)
         {
-        // 00E0 - CLS
-        case 0x00E0:
-            memset(gfx, 0, 2048);
-            drawflag = true;
-            break;
+            // 00E0 - CLS
+            case 0x00E0:
+                printf("ENTRA EN CLS");
+                memset(gfx, 0, 2048);
+                drawflag = true;
+                break;
 
-        // 00EE - RET
-        case 0x00EE:
-            
-            --sp;
-            PC = stack[sp];
-            break;
+            // 00EE - RET
+            case 0x00EE:
+                printf("ENTRA EN RET!");
+                --sp;
+                PC = stack[sp];
+                // --sp;
+                break;
 
-        default:
-        printf("Opcode error 0xxx");
-            break;
+            default:
+                printf("Opcode error 0xxx -> %x\n", opcode);
+                
         }
 
         break;
@@ -333,7 +335,7 @@ void execute()
     // 2nnn - CALL addr
     case 0x2000:
 
-        stack[sp] = nnn;
+        stack[sp] = PC;
         ++sp;
         PC = nnn;
 
