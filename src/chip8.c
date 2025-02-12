@@ -214,7 +214,7 @@ int main(int argc, char **argv)
             --delay_timer;
 
         execute();
-        draw();
+        draw(argv[2]);
     }
 
     cleanSDL();
@@ -243,7 +243,7 @@ void initChip8()
 }
 
 // Función de dibujo
-void draw()
+void draw(char* color)
 {
     uint32_t pixels[64 * 32];
     unsigned int x, y;
@@ -258,7 +258,13 @@ void draw()
 
                 if (gfx[(x) + ((y) * 64)] == 1)
                 {
-                    pixels[(x) + ((y) * 64)] = UINT32_MAX;
+                    if(color!= NULL){
+                        pixels[(x)+((y)*64)] = color;
+                    }
+                    else{
+                        // pixels[(x) + ((y) * 64)] = UINT32_MAX;
+                        pixels[(x)+((y)*64)] = 0x00FF00FF;
+                    }
                 }
             }
         }
