@@ -18,6 +18,9 @@ SDL_Texture *screen;
 int main(int argc, char **argv)
 {
     uint32_t quit = 0;
+    Uint32 currentTime = SDL_GetTicks();
+    static Uint32 lastTimerUpdate = 0;
+
     // Inicialización de SDL
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
     {
@@ -213,6 +216,15 @@ int main(int argc, char **argv)
         if (delay_timer > 0)
             --delay_timer;
 
+        
+
+        // // Actualizar timers a 60Hz (aproximadamente cada 16.67ms)
+        // if (currentTime - lastTimerUpdate >= 16) {
+        //     if (delay_timer > 0) --delay_timer;
+        //     if (sound_timer > 0) --sound_timer;
+        //     lastTimerUpdate = currentTime;
+        // }     
+
         execute();
         draw(argv[2]);
     }
@@ -294,6 +306,8 @@ void execute()
     uint16_t nnn;
     uint32_t i, key_d;
     uint8_t x, y, kk, n;
+    int vX;
+    int temp;
 
     opcode = memory[PC] << 8 | memory[PC + 1];
     PC += 2;
@@ -408,7 +422,6 @@ void execute()
 
         // 8xy4 - ADD Vx,Vy
         case 0x0004:
-            int temp;
             temp = (int)(v[x]) + (int)(v[y]);
             if (temp > 255)
                 v[0xF] = 1;
@@ -432,6 +445,10 @@ void execute()
             v[x] >>= 1;
             break;
 
+            // v[0xF] = v[y] & 1;    // Guarda el bit menos significativo de Vy en VF
+            // v[x] = v[y] >> 1;     // Copia Vy a Vx y luego desplaza
+            // break;
+
         // 8xy7 - SUBN Vx,Vy
         case 0x0007:
             if (v[y] > v[x])
@@ -446,6 +463,9 @@ void execute()
             v[0xF] = v[x] >> 7;
             v[x] = v[x] << 1;
             break;
+            // v[0xF] = v[y] >> 7;   // Guarda el bit más significativo de Vy en VF
+            // v[x] = v[y] << 1;     // Copia Vy a Vx y luego desplaza
+            // break;
 
         default:
             break;
@@ -473,31 +493,36 @@ void execute()
         v[x] = (rand() % 0x100) & kk;
         break;
 
+    
     // Dxyn - DRW Vx,Vy, nibble
     case 0xD000:
-        uint16_t xx = v[x];
-			uint16_t yy = v[y];
-			uint16_t height = n;
-			uint8_t pixel;
+    uint16_t xx = v[x] % 64;
+    uint16_t yy = v[y] % 32;
+    uint16_t height = n;
+    uint8_t pixel;
 
-			v[0xF] = 0;
-			for (int yline = 0; yline < height; yline++) {
-				pixel = memory[I + yline];
-				for(int xline = 0; xline < 8; xline++) {
-					if((pixel & (0x80 >> xline)) != 0) {
-						if(gfx[(xx + xline + ((yy + yline) * 64))] == 1){
-							v[0xF] = 1;                                   
-						}
-						gfx[xx + xline + ((yy+ yline) * 64)] ^= 1;
-					}
-
-				}
-
-			}
-			drawflag = true;
-			break;
-			
-        break;
+    v[0xF] = 0;
+    for (int yline = 0; yline < height; yline++) {
+        pixel = memory[I + yline];
+        for(int xline = 0; xline < 8; xline++) {
+            if((pixel & (0x80 >> xline)) != 0) {
+                // Implementar wrap-around para coordenadas x e y
+                int pixel_x = (xx + xline) % 64;  // Asegura que estamos dentro de los límites horizontales
+                int pixel_y = (yy + yline) % 32;  // Asegura que estamos dentro de los límites verticales
+                int pixel_pos = pixel_x + (pixel_y * 64);
+                
+                // Comprobar colisión
+                if(gfx[pixel_pos] == 1) {
+                    v[0xF] = 1;
+                }
+                
+                // Aplicar XOR al pixel
+                gfx[pixel_pos] ^= 1;
+            }
+        }
+    }
+    drawflag = true;
+    break;
 
     // Ex9E - ExA1
     case 0xE000:
@@ -567,7 +592,7 @@ void execute()
             break;
         // Fx33 - LD B,Vx
         case 0x0033:
-            int vX;
+            
             vX = v[x];
             memory[I] = (vX - (vX % 100)) / 100;
             vX -= memory[I] * 100;
