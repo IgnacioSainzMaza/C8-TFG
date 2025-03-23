@@ -81,7 +81,7 @@ int main(int argc, char **argv)
                         quit = 1;
                         break;
                     case SDLK_F1:
-                        initChip8();
+                        initChip16();
                         if (loadC8File(argv[1]) == 0)
                         {
                             cleanSDL();
@@ -246,23 +246,52 @@ void draw(char* color)
 
     if (drawflag)
     {
-        memset(pixels, 0, (128 * 64) * 4);
+        // Inicializar buffer de píxeles a negro
+        memset(pixels, 0, (128 * 64) * sizeof(uint32_t));
+        
         for (x = 0; x < 128; x++)
         {
             for (y = 0; y < 64; y++)
             {
-
-                if (gfx[(x) + ((y) * 128)] == 1)
+                uint16_t pixelValue = gfx[(x) + ((y) * 128)];
+                
+                // Si el píxel está activado (no es 0)
+                if (pixelValue != 0)
                 {
-                    if(color!= NULL){
-                        pixels[(x)+((y)*128)] = color;
+                    // Si se especificó un color por parámetro (modo de compatibilidad)
+                    if (color != NULL)
+                    {
+                        // Convertir string a valor uint32_t (asumiendo formato hexadecimal)
+                        uint32_t paramColor = (uint32_t)strtoul(color, NULL, 16);
+                        pixels[(x) + ((y) * 128)] = paramColor;
                     }
-                    else{
+                    else if (pixelValue == 1)
+                    {
+                        // Compatibilidad con modo binario - valor 1 se mapea al color rosa predeterminado
                         pixels[(x) + ((y) * 128)] = 0x00FF00FF;
+                    }
+                    else if (pixelValue <= 16)
+                    {
+                        // Modo paleta - valores 1-16 se interpretan como índices de paleta
+                        // Convertir el valor de la paleta (formato RGB565) a RGBA8888
+                        uint16_t paletteColor = palette[pixelValue - 1];
+                        uint8_t r = ((paletteColor >> 11) & 0x1F) << 3;  // 5 bits de rojo
+                        uint8_t g = ((paletteColor >> 5) & 0x3F) << 2;   // 6 bits de verde
+                        uint8_t b = (paletteColor & 0x1F) << 3;          // 5 bits de azul
+                        pixels[(x) + ((y) * 128)] = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                    }
+                    else
+                    {
+                        // Modo color directo - el valor pixelValue es un color RGB565 directamente
+                        uint8_t r = ((pixelValue >> 11) & 0x1F) << 3;    // 5 bits de rojo
+                        uint8_t g = ((pixelValue >> 5) & 0x3F) << 2;     // 6 bits de verde
+                        uint8_t b = (pixelValue & 0x1F) << 3;            // 5 bits de azul
+                        pixels[(x) + ((y) * 128)] = (r << 24) | (g << 16) | (b << 8) | 0xFF;
                     }
                 }
             }
         }
+        
 
         SDL_UpdateTexture(screen, NULL, pixels, 128 * sizeof(uint32_t));
         SDL_Rect position;
@@ -309,7 +338,7 @@ void execute()
             // 00E0 - CLS
             case 0x00E0:
                 printf("ENTRA EN CLS");
-                memset(gfx, 0, 8192);
+                memset(gfx, 0, 128 * 64 * sizeof(uint16_t));
                 drawflag = true;
                 break;
 
@@ -470,28 +499,48 @@ void execute()
 
     // Dxyn - DRW Vx,Vy, nibble
     case 0xD000:
-        uint16_t xx = v[x];
-			uint16_t yy = v[y];
-			uint16_t height = n;
-			uint8_t pixel;
-
-			v[0xF] = 0;
-			for (int yline = 0; yline < height; yline++) {
-				pixel = memory[I + yline];
-				for(int xline = 0; xline < 8; xline++) {
-					if((pixel & (0x80 >> xline)) != 0) {
-						if(gfx[(xx + xline + ((yy + yline) * 128))] == 1){
-							v[0xF] = 1;                                   
-						}
-						gfx[xx + xline + ((yy+ yline) * 128)] ^= 1;
-					}
-
-				}
-
-			}
-			drawflag = true;
-			break;
-			
+        uint16_t x_coord = v[x];
+        uint16_t y_coord = v[y];
+        uint16_t height = n;
+        uint8_t pixel;
+        uint16_t pixel_color = 1; // Valor por defecto para compatibilidad con CHIP-8
+        
+        // En modo CHIP-16 avanzado, podemos usar un color específico
+        if (emulation_mode == MODE_CHIP16 && v[0xF] > 1 && v[0xF] <= 16) {
+            // Usar el valor en VF como índice de color si está entre 2-16
+            pixel_color = v[0xF];
+        }
+        
+        // Resetear flag de colisión
+        v[0xF] = 0;
+        
+        for (int yline = 0; yline < height; yline++) {
+            pixel = memory[I + yline];
+            for (int xline = 0; xline < 8; xline++) {
+                if ((pixel & (0x80 >> xline)) != 0) {
+                    // Calcular posición en el buffer gráfico
+                    uint16_t pos = (x_coord + xline) % 128 + ((y_coord + yline) % 64) * 128;
+                    
+                    // Detectar colisión (si ya hay un píxel encendido)
+                    if (gfx[pos] != 0) {
+                        v[0xF] = 1;
+                    }
+                    
+                    if (emulation_mode == MODE_CHIP8) {
+                        // Modo CHIP-8: XOR con 1 (comportamiento binario)
+                        gfx[pos] ^= 1;
+                    } else {
+                        // Modo CHIP-16: XOR con el color seleccionado
+                        // Si el píxel está apagado, se enciende con el color
+                        // Si el píxel está encendido, se apaga (0)
+                        gfx[pos] = (gfx[pos] != 0) ? 0 : pixel_color;
+                    }
+                }
+            }
+        }
+        
+        drawflag = true;
+        
         break;
 
     // Ex9E - ExA1
@@ -606,6 +655,6 @@ uint32_t loadC8File(char *file)
     // SEEK_SET - Seek from beggining of file.
     fseek(fp, 0, SEEK_SET);
 
-    fread(memory + 0x200, sizeof(uint16_t), size, fp);
+    fread(memory + 0x200, sizeof(uint8_t), size, fp);
     return 1;
 }
