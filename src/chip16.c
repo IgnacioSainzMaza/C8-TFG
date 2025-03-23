@@ -5,7 +5,7 @@
 #include <SDL2/SDL.h>
 #include "chip16.h"
 
-void initChip8();
+void initChip16();
 void draw();
 void execute();
 void cleanSDL();
@@ -25,18 +25,26 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 2 && strcmp(argv[2], "16") == 0) {
+        emulation_mode = MODE_CHIP16;
+        printf("Ejecutando en modo CHIP-16\n");
+    } else {
+        emulation_mode = MODE_CHIP8;
+        printf("Ejecutando en modo CHIP-8 (compatibilidad)\n");
+    }
+
     SDL_Event event;
 
     char title[256];
-    sprintf(title, "CHIP-8-TFG: %s", argv[1]);
+    sprintf(title, "CHIP-16-TFG: %s", argv[1]);
     // SDL_CreateWindow -> Creates a window with the specified position,dimensions and flag
-    window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 320, 0);
+    window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 640, 0);
 
     // SDL_CreateRenderer -> Creates a 2D Rendering context for a window.
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     // SDL_RenderSetLogicalSize -> Set a device independent resolution for a window.
-    SDL_RenderSetLogicalSize(renderer, 64, 32);
+    SDL_RenderSetLogicalSize(renderer, 128, 64);
 
     // SDL_RenderDrawColor -> Set the color used for drawing operations
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -45,25 +53,9 @@ int main(int argc, char **argv)
     SDL_RenderClear(renderer);
 
     // SDL_CreateTexture -> Create a texturee for a rendering context.
-    screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 64, 32);
+    screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 128, 64);
 
-    // bool running = true;
-    // while (running)
-    // {
-    //     while (SDL_PollEvent(&event))
-    //     {
-    //         if (event.type == SDL_QUIT)
-    //         {
-    //             running = false;
-    //         }
-    //     }
-    //     // Aquí renderiza lo que se dibuja
-    //     SDL_RenderClear(renderer);
-    //     SDL_RenderCopy(renderer, screen, NULL, NULL);
-    //     SDL_RenderPresent(renderer);
-    // }
-
-    initChip8();
+    initChip16();
     if (loadC8File(argv[1]) == 0)
     {
         cleanSDL();
@@ -210,8 +202,12 @@ int main(int argc, char **argv)
         {
             SDL_Delay(speed);
         }
-        if (delay_timer > 0)
+        if (delay_timer > 0) {
+            if (emulation_mode == MODE_CHIP8 && delay_timer > 255) {
+                delay_timer = 255;  // Limitar a 8 bits en modo CHIP8
+            }
             --delay_timer;
+        }
 
         execute();
         draw(argv[2]);
@@ -222,7 +218,7 @@ int main(int argc, char **argv)
 }
 
 // Función que se encarga de inicializar todas las variables
-void initChip8()
+void initChip16()
 {
     delay_timer = 0;
     sound_timer = 0;
@@ -234,7 +230,7 @@ void initChip8()
     // memset es la asignación de memoria utilizada para las variables de tipo array.
     memset(stack, 0, 16);
     memset(memory, 0, MEMORY);
-    memset(v, 0, 16);
+    memset(v, 0, 16 * sizeof(uint16_t));
     memset(gfx, 0, 128*64);
     memset(keyboard, 0, 16);
 
@@ -262,8 +258,7 @@ void draw(char* color)
                         pixels[(x)+((y)*128)] = color;
                     }
                     else{
-                        // pixels[(x) + ((y) * 64)] = UINT32_MAX;
-                        pixels[(x)+((y)*128)] = 0x00FF00FF;
+                        pixels[(x) + ((y) * 128)] = 0x00FF00FF;
                     }
                 }
             }
@@ -410,11 +405,11 @@ void execute()
         case 0x0004:
             int temp;
             temp = (int)(v[x]) + (int)(v[y]);
-            if (temp > 255)
+            if (temp > 65535)
                 v[0xF] = 1;
             else
                 v[0xF] = 0;
-            v[x] = 0x0FF & temp;
+            v[x] = 0x0FFFF & temp;
             break;
 
         // 8xy5 - SUB Vx,Vy
@@ -443,7 +438,7 @@ void execute()
 
         // 8xyE - SHL Vx, {Vy}
         case 0x000E:
-            v[0xF] = v[x] >> 7;
+            v[0xF] = v[x] >> 15;
             v[x] = v[x] << 1;
             break;
 
@@ -485,10 +480,10 @@ void execute()
 				pixel = memory[I + yline];
 				for(int xline = 0; xline < 8; xline++) {
 					if((pixel & (0x80 >> xline)) != 0) {
-						if(gfx[(xx + xline + ((yy + yline) * 64))] == 1){
+						if(gfx[(xx + xline + ((yy + yline) * 128))] == 1){
 							v[0xF] = 1;                                   
 						}
-						gfx[xx + xline + ((yy+ yline) * 64)] ^= 1;
+						gfx[xx + xline + ((yy+ yline) * 128)] ^= 1;
 					}
 
 				}
@@ -563,30 +558,29 @@ void execute()
             break;
         // Fx29 - LD F,Vx
         case 0x0029:
-            I = v[x] * 5;
+            I = v[x] * 5; // * 10 Si quiero sprites más grandes/detallados
             break;
         // Fx33 - LD B,Vx
         case 0x0033:
             int vX;
             vX = v[x];
-            memory[I] = (vX - (vX % 100)) / 100;
-            vX -= memory[I] * 100;
-            memory[I + 1] = (vX - (vX % 10)) / 10;
-            vX -= memory[I + 1] * 10;
-            memory[I + 2] = vX;
+            memory[I] = (vX / 10000) % 10;     // Extrae las decenas de millar (6 en 65535)
+            memory[I + 1] = (vX / 1000) % 10;  // Extrae los millares (5 en 65535)
+            memory[I + 2] = (vX / 100) % 10;   // Extrae las centenas (5 en 65535)
+            memory[I + 3] = (vX / 10) % 10;    // Extrae las decenas (3 en 65535)
+            memory[I + 4] = vX % 10;           // Extrae las unidades (5 en 65535)
             break;
         // Fx55 - LD [I],Vx
         case 0x0055:
-            for (u_int8_t i = 0; i <= x; ++i)
-            {
-                memory[I + i] = v[i];
+            for (uint8_t i = 0; i <= x; ++i) {
+                memory[I + (i * 2)] = (v[i] >> 8) & 0xFF;    // Almacena byte alto (bits 8-15)
+                memory[I + (i * 2) + 1] = v[i] & 0xFF;       // Almacena byte bajo (bits 0-7)
             }
             break;
         // Fx65 - LD Vx,[I]
         case 0x0065:
-            for (u_int8_t i = 0; i <= x; ++i)
-            {
-                v[i] = memory[I + i];
+            for (uint8_t i = 0; i <= x; ++i) {
+                v[i] = (memory[I + (i * 2)] << 8) | memory[I + (i * 2) + 1];  // Combina byte alto y bajo
             }
             break;
         }

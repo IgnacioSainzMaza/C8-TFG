@@ -1,12 +1,15 @@
-#ifndef CHIP8
-#define CHIP8
+#ifndef CHIP16
+#define CHIP16
 
 #include <stdint.h>
-#define MEMORY 65536
+#define MEMORY 65536 
+#define MODE_CHIP8 0
+#define MODE_CHIP16 1
+uint8_t emulation_mode;
 // Variable a la que se asocia el opcode que se ejecuta en cada paso de instrucción.
-uint32_t opcode;
+uint16_t opcode;
 // Variable que almacena la memoria de la máquina.
-uint8_t memory[(MEMORY)];
+uint16_t memory[(MEMORY)];
 // Array que almacena los 16 registros de 8 bits de propósito general con los que cuenta la arquitectura.
 uint16_t v[16];
 // Variable que almacena el valor del registro I
@@ -14,7 +17,7 @@ uint16_t I;
 // Variable que almacena el valor del Program Counter
 uint16_t PC;
 // Variable que almacena la pantalla para su dibujo. 
-uint8_t gfx[128*64];
+uint16_t gfx[128*64];
 // Array que incluye la fuente en formato de sprites para su dibujo en pantalla (hexadecimal).
 uint8_t fontset[80]={
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -46,5 +49,7 @@ uint16_t sp;
 uint8_t keyboard[16];
 
 uint_fast8_t drawflag;
+// Paleta de 16 colores seleccionables
+uint16_t palette[16];
 
 #endif
