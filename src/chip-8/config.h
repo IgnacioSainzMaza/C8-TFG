@@ -23,11 +23,6 @@
 #define DEFAULT_SPEED 5  // Retardo en milisegundos entre instrucciones
 #define TIMER_FREQ 60    // Frecuencia de actualización de timers (60Hz)
 
-// Modos de emulación
-typedef enum {
-    CHIP8_MODERN,   // Comportamiento estándar en emuladores modernos
-    CHIP8_LEGACY    // Comportamiento histórico (COSMAC VIP)
-} EmulationMode;
 
 // Niveles de depuración
 typedef enum {
@@ -38,7 +33,6 @@ typedef enum {
 
 // Configuración global
 typedef struct {
-    EmulationMode mode;
     DebugLevel debugLevel;
     int clockSpeed;
     bool enableSound;

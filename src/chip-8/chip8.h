@@ -25,7 +25,7 @@ static const uint8_t chip8_fontset[FONTSET_SIZE] = {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
-// Estructura principal del emulador CHIP-8
+
 typedef struct {
     uint16_t opcode;              // Opcode actual
     uint8_t memory[MEMORY_SIZE];  // Memoria del sistema
