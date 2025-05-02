@@ -16,7 +16,7 @@ void chip16Init(Chip16 *chip16)
     // Inicializar registros y memoria
     memset(chip16->memory, 0, MEMORY_SIZE);
     memset(chip16->V, 0, REGISTER_COUNT * sizeof(uint16_t));
-    memset(chip16-> gfx, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT);
+    memset(chip16->gfx, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT);
     memset(chip16->key, 0, KEY_COUNT);
     memset(chip16->stack, 0, STACK_SIZE * sizeof(uint16_t));
 
@@ -137,6 +137,153 @@ void chip16Cycle(Chip16 *chip16)
             chip16->PC = chip16->stack[chip16->SP];
             break;
 
+        case 0x0001: // 0001: Llamada con parámetros
+            chip16->stack[chip16->SP] = chip16->PC;
+            chip16->stack[chip16->SP + 1] = chip16->V[0xD];
+            chip16->stack[chip16->SP + 2] = chip16->V[0xE];
+            chip16->stack[chip16->SP + 3] = chip16->V[0xF];
+            chip16->SP += 4;
+
+            uint8_t nParams = y;
+
+            chip16->V[0xD] = (chip16->V[1] >> 8) & 0xFF;
+            chip16->V[0xE] = (chip16->V[1] & 0xFF);
+            chip16->V[0xF] = nParams;
+            chip16->PC = chip16->V[0];
+            break;
+
+        case 0x0002: // 0002: Retorno con valor
+
+            uint16_t returnValue = chip16->V[y];
+            if (chip16->SP >= 4)
+            {
+
+                chip16->SP -= 4;
+                chip16->V[0xF] = chip16->stack[chip16->SP + 3];
+                chip16->V[0xE] = chip16->stack[chip16->SP + 2];
+                chip16->V[0xD] = chip16->stack[chip16->SP + 1];
+                chip16->PC = chip16->stack[chip16->SP];
+                chip16->V[0] = returnValue;
+            }
+            else
+            {
+                if (chip16->config.debugLevel >= DEBUG_OPCODES)
+                {
+                    printf("Error: Stack underflow en retorno con valor\n");
+                }
+            }
+            break;
+        case 0x0003: // 0003: Dibujar sprite 16x16
+            uint16_t xPos = chip16->V[2] % DISPLAY_WIDTH;
+            uint16_t yPos = chip16->V[3] % DISPLAY_HEIGHT;
+            chip16->V[0xF] = 0; // Reset del flag de colisión
+
+            for (int row = 0; row < 16; row++)
+            {
+                uint16_t spriteData = (chip16->memory[chip16->I + row * 2] << 8) |
+                                      chip16->memory[chip16->I + row * 2 + 1];
+
+                for (int col = 0; col < 16; col++)
+                {
+                    if ((spriteData & (0x8000 >> col)) != 0)
+                    {
+                        int pixelX = (xPos + col) % DISPLAY_WIDTH;
+                        int pixelY = (yPos + row) % DISPLAY_HEIGHT;
+                        int pixelPos = pixelX + (pixelY * DISPLAY_WIDTH);
+
+                        if (chip16->gfx[pixelPos] == 1)
+                        {
+                            chip16->V[0xF] = 1;
+                        }
+
+                        chip16->gfx[pixelPos] ^= 1;
+                    }
+                }
+            }
+
+            chip16->drawFlag = true;
+            break;
+
+        case 0x0004: // 0004: Dibujar línea horizontal
+            uint16_t xPos = chip16->V[2] % DISPLAY_WIDTH;
+            uint16_t yPos = chip16->V[3] % DISPLAY_HEIGHT;
+            uint16_t length = chip16->V[4];
+            uint16_t pattern = chip16->V[5];
+
+            if (length == 0 || length > DISPLAY_WIDTH - xPos)
+            {
+                length = DISPLAY_WIDTH - xPos;
+            }
+
+            chip16->V[0xF] = 0; // Reset del flag de colisión
+            int basePos = xPos + (yPos * DISPLAY_WIDTH);
+            if (length <= 16)
+            {
+                uint16_t mask = 0;
+                for (int i = 0; i < length; i++)
+                {
+                    mask |= (0x8000 >> i);
+                }
+
+                uint16_t activePattern = pattern & mask;
+                for (int i = 0; i < length; i++)
+                {
+                    if ((activePattern & (0x8000 >> i)) != 0)
+                    {
+                        if (chip16->gfx[basePos + i] == 1)
+                        {
+                            chip16->V[0xF] = 1;
+                        }
+                        chip16->gfx[basePos + i] ^= 1;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < length; i++)
+                {
+                    if ((pattern & (0x8000 >> i)) != 0)
+                    {
+                        if (chip16->gfx[basePos + i] == 1)
+                        {
+                            chip16->V[0xF] = 1;
+                        }
+                        chip16->gfx[basePos + i] ^= 1;
+                    }
+                }
+            }
+            chip16->drawFlag = true;
+            break;
+
+        case 0x0005: // 0005: Dibujar línea vertical
+            uint16_t xPos = chip16->V[2] % DISPLAY_WIDTH;
+            uint16_t yPos = chip16->V[3] % DISPLAY_HEIGHT;
+            uint16_t height = chip16->V[4];
+            uint16_t pattern = chip16->V[5];
+
+            if (height == 0 || height > DISPLAY_HEIGHT - yPos)
+            {
+                height = DISPLAY_HEIGHT - yPos;
+            }
+
+            chip16->V[0xF] = 0;
+            for (int i = 0; i < height; i++)
+            {
+                if ((pattern & (0x8000 >> (i % 16))) != 0)
+                {
+                    int pixelPos = xPos + ((yPos + i) % DISPLAY_HEIGHT) * DISPLAY_WIDTH;
+
+                    if (chip16->gfx[pixelPos] == 1)
+                    {
+                        chip16->V[0xF] = 1;
+                    }
+                    chip16->gfx[pixelPos] ^= 1;
+                }
+            }
+
+            chip16->drawFlag = true;
+            break;
+
         default:
             if (chip16->config.debugLevel >= DEBUG_OPCODES)
             {
@@ -169,10 +316,53 @@ void chip16Cycle(Chip16 *chip16)
         }
         break;
 
-    case 0x5000: // 5XY0: Saltar siguiente instrucción si VX == VY
-        if (n == 0 && chip16->V[x] == chip16->V[y])
+    case 0x5000:
+        if (n == 0) // 5XY0: Saltar siguiente instrucción si VX == VY
         {
-            chip16->PC += 2;
+            if (chip16->V[x] == chip16->V[y])
+            {
+                chip16->PC += 2;
+            }
+        }
+
+        else if (n == 1) // 5XY1: Multiplicación
+        {
+            uint32_t result = (uint32_t)chip16->V[x] * (uint32_t)chip16->V[y];
+            chip16->V[x] = result & 0xFFFF;
+        }
+
+        else if (n == 2) // 5XY2 : División
+        {
+            if (chip16->V[y] != 0)
+            {
+                chip16->V[0xF] = chip16->V[x] % chip16->V[y]; // Resto
+                chip16->V[x] = chip16->V[x] / chip16->V[y];   // Cociente
+            }
+            else
+            {
+                chip16->V[x] = 0xFFFF; // División por cero - ERROR
+                chip16->V[0xF] = 0;
+            }
+        }
+
+        else if (n == 3) // 5XY3 : Suma vectorial
+        {
+            uint16_t nextX = (x + 1) % REGISTER_COUNT;
+            uint16_t nextY = (y + 1) % REGISTER_COUNT;
+
+            chip16->V[x] += chip16->V[y];
+            chip16->V[nextX] += chip16->V[nextY];
+        }
+
+        else if (n == 4) // 5XY4 : PRoducto escalar
+        {
+            uint16_t nextX = (x + 1) % REGISTER_COUNT;
+            uint16_t nextY = (y + 1) % REGISTER_COUNT;
+
+            uint32_t product = (uint32_t)chip16->V[x] * (uint32_t)chip16->V[y] + (uint32_t)chip16->V[nextX] * (uint32_t)chip16->V[nextY];
+
+            chip16->V[x] = product & 0xFFFF;           // Producto escalar
+            chip16->V[0xF] = (product >> 16) & 0xFFFF; // Desbordamiento
         }
         break;
 
@@ -213,7 +403,7 @@ void chip16Cycle(Chip16 *chip16)
 
         case 0x5: // 8XY5: Establecer VX = VX - VY, VF = not borrow
             chip16->V[0xF] = (chip16->V[x] > chip16->V[y]) ? 1 : 0;
-            chip16->V[x] =(chip16->V[x] - chip16->V[y]) & 0xFFFF; 
+            chip16->V[x] = (chip16->V[x] - chip16->V[y]) & 0xFFFF;
             break;
 
         case 0x6: // 8XY6: Desplazar VX a la derecha, VF = bit menos significativo
@@ -237,25 +427,122 @@ void chip16Cycle(Chip16 *chip16)
         }
         break;
 
-    case 0x9000: // 9XY0: Saltar siguiente instrucción si VX != VY
-        if (n == 0 && chip16->V[x] != chip16->V[y])
+    case 0x9000:
+        switch (n)
         {
-            chip16->PC += 2;
-        }
-        break;
+        case 0x0: // 9XY0: Saltar siguiente instrucción si VX != VY
+            if (chip16->V[x] != chip16->V[y])
+            {
+                chip16->PC += 2;
+            }
 
+            break;
+
+        case 0x1: // 9XY1: ROtación derecha
+            uint16_t value = chip16->V[x];
+            uint8_t shift = chip16->V[y] & 0x0F;
+
+            chip16->V[x] = (value >> shift) | (value << (16 - shift));
+            break;
+        case 0x2: // 9XY2: Rotación izquierda
+            uint16_t value = chip16->V[x];
+            uint8_t shift = chip16->V[y] & 0x0F;
+
+            chip16->V[x] = (value << shift) | (value >> (16 - shift));
+            break;
+        case 0x3: // 9XY3: Contar bits
+            uint16_t value = chip16->V[x];
+            uint8_t count = 0;
+
+            for (int i = 0; i < 16; i++)
+            {
+                if (value & (1 << i))
+                {
+                    count++;
+                }
+            }
+
+            chip16->V[x] = count;
+            break;
+
+        default:
+            break;
+        }
+
+        break;
     case 0xA000: // ANNN: Establecer I = NNN
         chip16->I = nnn;
         break;
 
-    case 0xB000: // BNNN: Saltar a dirección NNN + V0
+    case 0xB000: 
+    switch (n)
+    {
+    case 0x0: // BNNN: Saltar a dirección NNN + V0
         chip16->PC = nnn + (chip16->V[0] & 0xFFFF);
         break;
 
-    case 0xC000: // CXKK: Establecer VX = random byte AND KK
-        chip16->V[x] = (rand() % 256) & kk; //No se cambia a 65536 para mantener compatibilidad con programas existentes
-        break;
+    case 0x1: // B001: Copiar bloque de memoria
+        uint16_t count = chip16->V[x];
+        uint16_t src = chip16->I;
+        uint16_t dst = chip16->I + count;
 
+        if (dst<MEMORY_SIZE){
+            if(src<dst && src + count > dst){
+                for (int i=count-1; i>=0; i--){
+                    chip16->memory[dst+i] = chip16->memory[src+i];
+                }
+            }
+            else{
+                for (int i=0; i<count; i++){
+                    chip16->memory[dst+i] = chip16->memory[src+i];
+                }
+            }
+        }
+        break;
+    
+    case 0x2: // B002: BUscar valor en memoria
+        uint16_t value = chip16->V[x];
+        bool found = false;
+
+        for (int i=0; i<256 && (chip16->I + i+1)< MEMORY_SIZE; i+=2){
+            uint16_t memValue = (chip16->memory[chip16->I + i] << 8) | chip16->memory[chip16->I + i + 1];
+            if(memValue == value){
+                chip16->V[0xF] = i/2;
+                found = true;
+                break;
+            }
+        }
+        break;
+    default:
+        break;
+    }
+    break;
+
+    case 0xC000:
+        switch (n)
+        {
+        case 0x0: // CXKK: Establecer VX = random byte AND KK
+            chip16->V[x] = (rand() % 256) & kk; // No se cambia a 65536 para mantener compatibilidad con programas existentes
+            break;
+
+        case 0x1: // CX01: Aleatorio 16 bits
+            chip16->V[x] = rand() % 65536;
+            break;
+        case 0x2: // CX02: Aleatorio en rango
+            uint8_t range = x + 1;
+            if (chip16->V[range] > 0)
+            {
+                chip16->V[x] = rand() % chip16->V[range];
+            }
+            else
+            {
+                chip16->V[x] = 0;
+            }
+            break;
+        default:
+            break;
+        }
+        break;
     case 0xD000: // DXYN: Dibujar sprite en posición VX, VY con N bytes
     {
         uint16_t xPos = chip16->V[x] % DISPLAY_WIDTH;
@@ -353,7 +640,7 @@ void chip16Cycle(Chip16 *chip16)
             chip16->I += chip16->V[x];
             break;
 
-        case 0x29:                      // FX29: Establecer I = dirección del carácter en VX
+        case 0x29:                        // FX29: Establecer I = dirección del carácter en VX
             chip16->I = chip16->V[x] * 5; // Cada carácter ocupa 5 bytes
             break;
 
@@ -383,7 +670,7 @@ void chip16Cycle(Chip16 *chip16)
             {
                 // Cargar dos bytes consecutivos como un valor de 16 bits
                 chip16->V[i] = (chip16->memory[chip16->I + (i * 2)] << 8) |
-                              chip16->memory[chip16->I + (i * 2) + 1];
+                               chip16->memory[chip16->I + (i * 2) + 1];
             }
             chip16->I += (x + 1) * 2;
             break;
