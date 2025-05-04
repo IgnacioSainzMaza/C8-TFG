@@ -12,6 +12,9 @@ void chip16Init(Chip16 *chip16)
     chip16->config.clockSpeed = DEFAULT_SPEED;
     chip16->config.enableSound = true;
     chip16->config.pixelColor = DEFAULT_PIXEL_COLOR;
+    chip16->mode = MODE_8BIT;
+    
+    
 
     // Inicializar registros y memoria
     memset(chip16->memory, 0, MEMORY_SIZE);
@@ -664,21 +667,62 @@ void chip16Cycle(Chip16 *chip16)
             break;
 
         case 0x29:                        // FX29: Establecer I = dirección del carácter en VX
-            chip16->I = chip16->V[x] * 5; // Cada carácter ocupa 5 bytes
+            // chip16->I = chip16->V[x] * 5; // Cada carácter ocupa 5 bytes
+
+            if (chip16->mode == MODE_8BIT) {
+                // Modo CHIP-8: Sprites de 5 bytes, solo dígitos 0-F
+                uint8_t digit = chip16->V[x] & 0x0F;  // Limitar a 0-F
+                chip16->I = digit * 5;  // Cada sprite ocupa 5 bytes
+            } else {
+                // Modo CHIP-16: Podría usar sprites extendidos
+                uint8_t character = chip16->V[x] & 0xFF;  // Soportar más caracteres
+                
+                if (character <= 0x0F) {
+                    // Caracteres estándar 0-F (compatibilidad)
+                    chip16->I = character * 5;
+                } else {
+                    // Caracteres extendidos (si los implementamos)
+                    // Por ejemplo, sprites de mayor resolución o caracteres ASCII
+                    if (character < 128 && character >= 16) {
+                        // Offset para caracteres extendidos
+                        chip16->I = FONTSET_SIZE + ((character - 16) * 8);
+                    } else {
+                        // Caracter no válido, usar espacio en blanco o '?'
+                        chip16->I = 0x0F * 5;  // Apuntar al sprite 'F' como fallback
+                    }
+                }
+            }
             break;
 
         case 0x33: // FX33: Almacenar representación BCD de VX en I, I+1, I+2
         {
-            uint16_t BCDvalue = chip16->V[x];
-            chip16->memory[chip16->I] = BCDvalue / 10000;
-            chip16->memory[chip16->I + 1] = (BCDvalue / 1000) % 10;
-            chip16->memory[chip16->I + 2] = (BCDvalue / 100) % 10;
-            chip16->memory[chip16->I + 3] = (BCDvalue / 10) % 10;
-            chip16->memory[chip16->I + 4] = BCDvalue % 10;
+            if (chip16->mode == MODE_8BIT) {
+                // Modo CHIP-8: 3 dígitos BCD 
+                uint8_t value = chip16->V[x] & 0xFF;  
+                chip16->memory[chip16->I] = value / 100;          // Centenas
+                chip16->memory[chip16->I + 1] = (value / 10) % 10; // Decenas
+                chip16->memory[chip16->I + 2] = value % 10;        // Unidades
+            } else {
+                // Modo CHIP-16: 5 dígitos BCD
+                uint16_t value = chip16->V[x];
+                chip16->memory[chip16->I] = value / 10000;         // Decenas de millar
+                chip16->memory[chip16->I + 1] = (value / 1000) % 10; // Millares
+                chip16->memory[chip16->I + 2] = (value / 100) % 10;  // Centenas
+                chip16->memory[chip16->I + 3] = (value / 10) % 10;   // Decenas
+                chip16->memory[chip16->I + 4] = value % 10;          // Unidades
+            }
         }
         break;
 
         case 0x55: // FX55: Almacenar V0 a VX en memoria desde I
+            
+        if (chip16->mode == MODE_8BIT) {
+            // Modo compatibilidad CHIP-8
+            for (int i = 0; i <= x; i++) {
+                chip16->memory[chip16->I + i] = chip16->V[i] & 0xFF;
+            }
+            
+        } else {
             for (int i = 0; i <= x; i++)
             {
                 // Almacenar registro de 16 bits en dos bytes consecutivos
@@ -686,16 +730,24 @@ void chip16Cycle(Chip16 *chip16)
                 chip16->memory[chip16->I + (i * 2) + 1] = chip16->V[i] & 0xFF;    // Byte bajo
             }
             chip16->I += (x + 1) * 2;
+            }
             break;
 
         case 0x65: // FX65: Cargar V0 a VX desde memoria desde I
-            for (int i = 0; i <= x; i++)
-            {
-                // Cargar dos bytes consecutivos como un valor de 16 bits
+        if (chip16->mode == MODE_8BIT) {
+            // Modo compatibilidad CHIP-8
+            for (int i = 0; i <= x; i++) {
+                chip16->V[i] = chip16->memory[chip16->I + i];
+            }
+            
+        } else {
+            // Modo CHIP-16
+            for (int i = 0; i <= x; i++) {
                 chip16->V[i] = (chip16->memory[chip16->I + (i * 2)] << 8) |
                                chip16->memory[chip16->I + (i * 2) + 1];
             }
             chip16->I += (x + 1) * 2;
+        }
             break;
         }
         break;

@@ -40,6 +40,7 @@ typedef struct {
     uint8_t key[KEY_COUNT];       // Estado del teclado
     bool drawFlag;                // Bandera para indicar si hay que actualizar la pantalla
     Config config;                // Configuración del emulador
+    EmuMode mode; 
 } Chip16;
 
 // Funciones principales del emulador
