@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
     // Bucle principal de emulación
     while (!quit) {
         // Procesar entrada
-        quit = inputProcess(&event, &chip16);
+        quit = inputProcess(&event, &chip16, &display);
         
         // Actualizar temporizadores a 60Hz 
         Uint32 currentTime = SDL_GetTicks();

@@ -41,6 +41,12 @@ typedef struct {
     bool drawFlag;                // Bandera para indicar si hay que actualizar la pantalla
     Config config;                // Configuración del emulador
     EmuMode mode; 
+
+    //2o buffer
+    uint8_t gfx2Buffer[DISPLAY_WIDTH * DISPLAY_HEIGHT]; // Buffer de pantalla secundario
+    GraphicsEffects currentEffect; // Efecto gráfico actual
+    uint8_t effectTimer; // Temporizador para efectos gráficos
+    uint8_t colorIndex; // Índice del color actual en el ciclo de colores
 } Chip16;
 
 // Funciones principales del emulador
@@ -49,5 +55,7 @@ bool chip16LoadROM(Chip16* chip16, const char* filename);
 void chip16Cycle(Chip16* chip16);
 void chip16UpdateTimers(Chip16* chip16);
 void chip16SetKey(Chip16* chip16, uint8_t key, uint8_t value);
+void chip16SetEffect(Chip16* chip16, GraphicsEffects effect);
+void chip16ProcessEffects(Chip16* chip16);
 
 #endif // CHIP16_H

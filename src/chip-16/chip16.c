@@ -22,6 +22,8 @@ void chip16Init(Chip16 *chip16)
     memset(chip16->gfx, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT);
     memset(chip16->key, 0, KEY_COUNT);
     memset(chip16->stack, 0, STACK_SIZE * sizeof(uint16_t));
+    memset(chip16->gfx2Buffer, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT);
+    
 
     chip16->opcode = 0;
     chip16->I = 0;
@@ -30,6 +32,9 @@ void chip16Init(Chip16 *chip16)
     chip16->delayTimer = 0;
     chip16->soundTimer = 0;
     chip16->drawFlag = false;
+    chip16->currentEffect = EFFECT_NONE;
+    chip16->effectTimer = 0;
+    chip16->colorIndex = 0;
 
     // Cargar fuente en memoria
     memcpy(chip16->memory, chip16_fontset, FONTSET_SIZE);
@@ -99,6 +104,42 @@ void chip16SetKey(Chip16 *chip16, uint8_t key, uint8_t value)
     if (key < KEY_COUNT)
     {
         chip16->key[key] = value;
+    }
+}
+
+void chip16SetEffect(Chip16* chip16, GraphicsEffects effect) {
+    chip16->currentEffect = effect;
+    chip16->effectTimer = 0;  // Reiniciar timer al cambiar efecto
+    
+    if (chip16->config.debugLevel >= DEBUG_OPCODES) {
+        printf("Efecto gráfico cambiado a: %s\n", 
+               effect == EFFECT_NONE ? "Ninguno" : "Ciclo de color");
+    }
+}
+
+void chip16ProcessEffects(Chip16* chip16) {
+    // SIEMPRE copiamos el buffer primario al de efectos
+    memcpy(chip16->gfx2Buffer, chip16->gfx, 
+           DISPLAY_WIDTH * DISPLAY_HEIGHT);
+    
+    // Si hay un efecto activo, actualizar su estado
+    if (chip16->currentEffect == EFFECT_COLOR_CYCLE) {
+        // Incrementar el timer
+        chip16->effectTimer++;
+        
+        // ¿Es momento de cambiar de color?
+        if (chip16->effectTimer >= COLOR_CYCLE_FRAMES) {
+            chip16->effectTimer = 0;  // Reiniciar timer
+            
+            // Avanzar al siguiente color (con wrap-around)
+            chip16->colorIndex = (chip16->colorIndex + 1) % COLOR_PALETTE_SIZE;
+            
+            // Debug opcional
+            if (chip16->config.debugLevel >= DEBUG_VERBOSE) {
+                printf("Ciclo de color: cambiando a índice %d (Color: 0x%08X)\n", 
+                       chip16->colorIndex, COLOR_PALETTE[chip16->colorIndex]);
+            }
+        }
     }
 }
 
@@ -758,4 +799,6 @@ void chip16Cycle(Chip16 *chip16)
             printf("Opcode desconocido: 0x%04X\n", chip16->opcode);
         }
     }
+
+    
 }

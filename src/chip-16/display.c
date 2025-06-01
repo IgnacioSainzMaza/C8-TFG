@@ -7,6 +7,10 @@ bool displayInit(Display* display, const char* title) {
     // Copiar título de la ventana
     strncpy(display->windowTitle, title, 255);
     display->windowTitle[255] = '\0';
+    display->dualWindowMode = false;
+    display->debugWindow = NULL;
+    display->debugRenderer = NULL;
+    display->debugTexture = NULL;
     
     // Crear ventana SDL
     display->window = SDL_CreateWindow(
@@ -62,19 +66,116 @@ bool displayInit(Display* display, const char* title) {
     return true;
 }
 
+void displayToggleDualWindow(Display* display, Chip16* chip16) {
+    if (!display->dualWindowMode) {
+        // Activar modo dual - crear segunda ventana
+        char debugTitle[256];
+        snprintf(debugTitle, sizeof(debugTitle), "%s - Buffer Original (Sin Efectos)", 
+                 display->windowTitle);
+        
+        // Crear ventana de debug a la derecha de la principal
+        int mainX, mainY;
+        SDL_GetWindowPosition(display->window, &mainX, &mainY);
+        
+        display->debugWindow = SDL_CreateWindow(
+            debugTitle,
+            mainX + WINDOW_WIDTH,  // 20 pixels de separación
+            mainY,
+            WINDOW_WIDTH,
+            WINDOW_HEIGHT,
+            0
+        );
+        
+        if (display->debugWindow == NULL) {
+            fprintf(stderr, "Error al crear ventana de debug: %s\n", SDL_GetError());
+            return;
+        }
+        
+        // Crear renderer de debug
+        display->debugRenderer = SDL_CreateRenderer(
+            display->debugWindow,
+            -1,
+            SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+        );
+        
+        if (display->debugRenderer == NULL) {
+            SDL_DestroyWindow(display->debugWindow);
+            display->debugWindow = NULL;
+            return;
+        }
+        
+        SDL_RenderSetLogicalSize(display->debugRenderer, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        
+        // Crear textura de debug
+        display->debugTexture = SDL_CreateTexture(
+            display->debugRenderer,
+            SDL_PIXELFORMAT_RGBA8888,
+            SDL_TEXTUREACCESS_STREAMING,
+            DISPLAY_WIDTH,
+            DISPLAY_HEIGHT
+        );
+        
+        if (display->debugTexture == NULL) {
+            SDL_DestroyRenderer(display->debugRenderer);
+            SDL_DestroyWindow(display->debugWindow);
+            display->debugRenderer = NULL;
+            display->debugWindow = NULL;
+            return;
+        }
+        
+        display->dualWindowMode = true;
+        printf("Modo ventana dual: ACTIVADO\n");
+        
+        // Forzar redibujado
+        chip16->drawFlag = true;
+        
+    } else {
+        // Desactivar modo dual - destruir segunda ventana
+        if (display->debugTexture) {
+            SDL_DestroyTexture(display->debugTexture);
+            display->debugTexture = NULL;
+        }
+        if (display->debugRenderer) {
+            SDL_DestroyRenderer(display->debugRenderer);
+            display->debugRenderer = NULL;
+        }
+        if (display->debugWindow) {
+            SDL_DestroyWindow(display->debugWindow);
+            display->debugWindow = NULL;
+        }
+        
+        display->dualWindowMode = false;
+        printf("Modo ventana dual: DESACTIVADO\n");
+    }
+}
+
 // Renderizar el estado actual del emulador
 void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     if (!chip16->drawFlag) {
         return;  // No hay necesidad de actualizar la pantalla
     }
+
+    chip16ProcessEffects(chip16);
     
     // Determinar el color del pixel
     uint32_t pixelColor;
-    if (colorArg != NULL) {
-        // Convertir argumento de color de string a uint32
+    // if (colorArg != NULL) {
+    //     // Convertir argumento de color de string a uint32
+    //     pixelColor = strtoul(colorArg, NULL, 16);
+    // } else {
+    //     // Usar color predeterminado
+    //     pixelColor = chip16->config.pixelColor;
+    // }
+
+     // === NUEVO: Lógica de selección de color según el efecto ===
+     if (chip16->currentEffect == EFFECT_COLOR_CYCLE) {
+        // Si el efecto está activo, usar el color de la paleta
+        pixelColor = COLOR_PALETTE[chip16->colorIndex];
+    } else if (colorArg != NULL) {
+        // Si no hay efecto pero hay argumento de línea de comandos
         pixelColor = strtoul(colorArg, NULL, 16);
     } else {
-        // Usar color predeterminado
+        // Color por defecto
         pixelColor = chip16->config.pixelColor;
     }
     
@@ -86,7 +187,7 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     for (int y = 0; y < DISPLAY_HEIGHT; y++) {
         for (int x = 0; x < DISPLAY_WIDTH; x++) {
             int index = x + (y * DISPLAY_WIDTH);
-            if (chip16->gfx[index] == 1) {
+            if (chip16->gfx2Buffer[index] == 1) {
                 pixels[index] = pixelColor;
             }
         }
@@ -100,12 +201,52 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     SDL_RenderCopy(display->renderer, display->texture, NULL, NULL);
     SDL_RenderPresent(display->renderer);
     
+
+    if (display->dualWindowMode && display->debugWindow) {
+        // Limpiar buffer de pixels
+        memset(pixels, 0, sizeof(pixels));
+        
+        // Determinar color para la ventana de debug (siempre sin efectos)
+        uint32_t debugColor;
+        if (colorArg != NULL) {
+            debugColor = strtoul(colorArg, NULL, 16);
+        } else {
+            debugColor = chip16->config.pixelColor;
+        }
+        
+        // Usar gfx[] original para la ventana de debug
+        for (int y = 0; y < DISPLAY_HEIGHT; y++) {
+            for (int x = 0; x < DISPLAY_WIDTH; x++) {
+                int index = x + (y * DISPLAY_WIDTH);
+                if (chip16->gfx[index] == 1) {  // <-- Nota: usamos gfx, no effectBuffer
+                    pixels[index] = debugColor;
+                }
+            }
+        }
+        
+        SDL_UpdateTexture(display->debugTexture, NULL, pixels, DISPLAY_WIDTH * sizeof(uint32_t));
+        SDL_RenderClear(display->debugRenderer);
+        SDL_RenderCopy(display->debugRenderer, display->debugTexture, NULL, NULL);
+        SDL_RenderPresent(display->debugRenderer);
+    }
     // Restablecer flag de dibujo
     chip16->drawFlag = false;
 }
 
 // Liberar recursos del subsistema de visualización
 void displayCleanup(Display* display) {
+
+    // Limpiar ventana de debug si existe
+    if (display->debugTexture != NULL) {
+        SDL_DestroyTexture(display->debugTexture);
+    }
+    if (display->debugRenderer != NULL) {
+        SDL_DestroyRenderer(display->debugRenderer);
+    }
+    if (display->debugWindow != NULL) {
+        SDL_DestroyWindow(display->debugWindow);
+    }
+
     if (display->texture != NULL) {
         SDL_DestroyTexture(display->texture);
     }
