@@ -190,163 +190,6 @@ void chip16Cycle(Chip16 *chip16)
             chip16->SP--;
             chip16->PC = chip16->stack[chip16->SP];
             break;
-
-        case 0x0001: // 0001: Llamada con parámetros
-            if(chip16->SP + 4 <= STACK_SIZE)
-            {
-            chip16->stack[chip16->SP] = chip16->PC;
-            chip16->stack[chip16->SP + 1] = chip16->V[0xD];
-            chip16->stack[chip16->SP + 2] = chip16->V[0xE];
-            chip16->stack[chip16->SP + 3] = chip16->V[0xF];
-            chip16->SP += 4;
-
-            nParams = y;
-
-            chip16->V[0xD] = (chip16->V[1] >> 8) & 0xFF;
-            chip16->V[0xE] = (chip16->V[1] & 0xFF);
-            chip16->V[0xF] = nParams;
-            chip16->PC = chip16->V[0];
-            }     
-            else{
-                if (chip16->config.debugLevel >= DEBUG_OPCODES)
-                {
-                    printf("Error: Stack overflow en llamada con parámetros\n");
-                }
-            }
-            break;
-
-        case 0x0002: // 0002: Retorno con valor
-
-            returnValue = chip16->V[y];
-            if (chip16->SP >= 4)
-            {
-
-                chip16->SP -= 4;
-                chip16->V[0xF] = chip16->stack[chip16->SP + 3];
-                chip16->V[0xE] = chip16->stack[chip16->SP + 2];
-                chip16->V[0xD] = chip16->stack[chip16->SP + 1];
-                chip16->PC = chip16->stack[chip16->SP];
-                chip16->V[0] = returnValue;
-            }
-            else
-            {
-                if (chip16->config.debugLevel >= DEBUG_OPCODES)
-                {
-                    printf("Error: Stack underflow en retorno con valor\n");
-                }
-            }
-            break;
-        case 0x0003: // 0003: Dibujar sprite 16x16
-            xPos = chip16->V[2] % DISPLAY_WIDTH;
-            yPos = chip16->V[3] % DISPLAY_HEIGHT;
-            chip16->V[0xF] = 0; // Reset del flag de colisión
-
-            for (int row = 0; row < 16; row++)
-            {
-                spriteData = (chip16->memory[chip16->I + row * 2] << 8) |
-                                      chip16->memory[chip16->I + row * 2 + 1];
-
-                for (int col = 0; col < 16; col++)
-                {
-                    if ((spriteData & (0x8000 >> col)) != 0)
-                    {
-                        int pixelX = (xPos + col) % DISPLAY_WIDTH;
-                        int pixelY = (yPos + row) % DISPLAY_HEIGHT;
-                        int pixelPos = pixelX + (pixelY * DISPLAY_WIDTH);
-
-                        if (chip16->gfx[pixelPos] == 1)
-                        {
-                            chip16->V[0xF] = 1;
-                        }
-
-                        chip16->gfx[pixelPos] ^= 1;
-                    }
-                }
-            }
-
-            chip16->drawFlag = true;
-            break;
-
-        case 0x0004: // 0004: Dibujar línea horizontal
-            xPos = chip16->V[2] % DISPLAY_WIDTH;
-            yPos = chip16->V[3] % DISPLAY_HEIGHT;
-            length = chip16->V[4];
-            pattern = chip16->V[5];
-
-            if (length == 0 || length > DISPLAY_WIDTH - xPos)
-            {
-                length = DISPLAY_WIDTH - xPos;
-            }
-
-            chip16->V[0xF] = 0; // Reset del flag de colisión
-            basePos = xPos + (yPos * DISPLAY_WIDTH);
-            if (length <= 16)
-            {
-                mask = 0;
-                for (int i = 0; i < length; i++)
-                {
-                    mask |= (0x8000 >> i);
-                }
-
-                activePattern = pattern & mask;
-                for (int i = 0; i < length; i++)
-                {
-                    if ((activePattern & (0x8000 >> i)) != 0)
-                    {
-                        if (chip16->gfx[basePos + i] == 1)
-                        {
-                            chip16->V[0xF] = 1;
-                        }
-                        chip16->gfx[basePos + i] ^= 1;
-                    }
-                }
-            }
-            else
-            {
-                for (int i = 0; i < length; i++)
-                {
-                    if ((pattern & (0x8000 >> i)) != 0)
-                    {
-                        if (chip16->gfx[basePos + i] == 1)
-                        {
-                            chip16->V[0xF] = 1;
-                        }
-                        chip16->gfx[basePos + i] ^= 1;
-                    }
-                }
-            }
-            chip16->drawFlag = true;
-            break;
-
-        case 0x0005: // 0005: Dibujar línea vertical
-            xPos = chip16->V[2] % DISPLAY_WIDTH;
-            yPos = chip16->V[3] % DISPLAY_HEIGHT;
-            height = chip16->V[4];
-            pattern = chip16->V[5];
-
-            if (height == 0 || height > DISPLAY_HEIGHT - yPos)
-            {
-                height = DISPLAY_HEIGHT - yPos;
-            }
-
-            chip16->V[0xF] = 0;
-            for (int i = 0; i < height; i++)
-            {
-                if ((pattern & (0x8000 >> (i % 16))) != 0)
-                {
-                    pixelPos = xPos + ((yPos + i) % DISPLAY_HEIGHT) * DISPLAY_WIDTH;
-
-                    if (chip16->gfx[pixelPos] == 1)
-                    {
-                        chip16->V[0xF] = 1;
-                    }
-                    chip16->gfx[pixelPos] ^= 1;
-                }
-            }
-
-            chip16->drawFlag = true;
-            break;
-
         default:
             if (chip16->config.debugLevel >= DEBUG_OPCODES)
             {
@@ -592,20 +435,8 @@ void chip16Cycle(Chip16 *chip16)
             chip16->V[x] = (rand() % 256) & kk; // No se cambia a 65536 para mantener compatibilidad con programas existentes
             break;
 
-        case 0x1: // CX01: Aleatorio 16 bits
-            chip16->V[x] = rand() % 65536;
-            break;
-        case 0x2: // CX02: Aleatorio en rango
-            range = x + 1;
-            if (chip16->V[range] > 0)
-            {
-                chip16->V[x] = rand() % chip16->V[range];
-            }
-            else
-            {
-                chip16->V[x] = 0;
-            }
-            break;
+        
+        
         default:
             break;
         }
@@ -650,6 +481,66 @@ void chip16Cycle(Chip16 *chip16)
     case 0xE000:
         switch (kk)
         {
+        case 0x01: // E001: Llamada con parámetros
+            if(chip16->SP + 4 <= STACK_SIZE)
+            {
+            chip16->stack[chip16->SP] = chip16->PC;
+            chip16->stack[chip16->SP + 1] = chip16->V[0xD];
+            chip16->stack[chip16->SP + 2] = chip16->V[0xE];
+            chip16->stack[chip16->SP + 3] = chip16->V[0xF];
+            chip16->SP += 4;
+
+            nParams = y;
+
+            chip16->V[0xD] = (chip16->V[1] >> 8) & 0xFF;
+            chip16->V[0xE] = (chip16->V[1] & 0xFF);
+            chip16->V[0xF] = nParams;
+            chip16->PC = chip16->V[0];
+            }     
+            else{
+                if (chip16->config.debugLevel >= DEBUG_OPCODES)
+                {
+                    printf("Error: Stack overflow en llamada con parámetros\n");
+                }
+            }
+            break;
+        case 0x02: // E002: Retorno con valor
+
+            returnValue = chip16->V[y];
+            if (chip16->SP >= 4)
+            {
+
+                chip16->SP -= 4;
+                chip16->V[0xF] = chip16->stack[chip16->SP + 3];
+                chip16->V[0xE] = chip16->stack[chip16->SP + 2];
+                chip16->V[0xD] = chip16->stack[chip16->SP + 1];
+                chip16->PC = chip16->stack[chip16->SP];
+                chip16->V[0] = returnValue;
+            }
+            else
+            {
+                if (chip16->config.debugLevel >= DEBUG_OPCODES)
+                {
+                    printf("Error: Stack underflow en retorno con valor\n");
+                }
+            }
+            break;
+        case 0x03: // E003: Aleatorio 16 bits
+            chip16->V[x] = rand() % 65536;
+            break;
+
+        case 0x04: // E004: Aleatorio en rango
+            range = x + 1;
+            if (chip16->V[range] > 0)
+            {
+                chip16->V[x] = rand() % chip16->V[range];
+            }
+            else
+            {
+                chip16->V[x] = 0;
+            }
+            break;
+
         case 0x9E: // EX9E: Saltar siguiente instrucción si tecla VX está presionada
             if (chip16->key[chip16->V[x]] != 0)
             {
@@ -669,6 +560,116 @@ void chip16Cycle(Chip16 *chip16)
     case 0xF000:
         switch (kk)
         {
+        case 0x01: // FX01: Dibujar Sprite 16x16
+            xPos = chip16->V[2] % DISPLAY_WIDTH;
+            yPos = chip16->V[3] % DISPLAY_HEIGHT;
+            chip16->V[0xF] = 0; // Reset del flag de colisión
+
+            for (int row = 0; row < 16; row++)
+            {
+                spriteData = (chip16->memory[chip16->I + row * 2] << 8) |
+                                      chip16->memory[chip16->I + row * 2 + 1];
+
+                for (int col = 0; col < 16; col++)
+                {
+                    if ((spriteData & (0x8000 >> col)) != 0)
+                    {
+                        int pixelX = (xPos + col) % DISPLAY_WIDTH;
+                        int pixelY = (yPos + row) % DISPLAY_HEIGHT;
+                        int pixelPos = pixelX + (pixelY * DISPLAY_WIDTH);
+
+                        if (chip16->gfx[pixelPos] == 1)
+                        {
+                            chip16->V[0xF] = 1;
+                        }
+
+                        chip16->gfx[pixelPos] ^= 1;
+                    }
+                }
+            }
+
+            chip16->drawFlag = true;
+            break;
+        
+        case 0x02: // Fx02: Dibujar línea horizontal
+        xPos = chip16->V[2] % DISPLAY_WIDTH;
+            yPos = chip16->V[3] % DISPLAY_HEIGHT;
+            length = chip16->V[4];
+            pattern = chip16->V[5];
+
+            if (length == 0 || length > DISPLAY_WIDTH - xPos)
+            {
+                length = DISPLAY_WIDTH - xPos;
+            }
+
+            chip16->V[0xF] = 0; // Reset del flag de colisión
+            basePos = xPos + (yPos * DISPLAY_WIDTH);
+            if (length <= 16)
+            {
+                mask = 0;
+                for (int i = 0; i < length; i++)
+                {
+                    mask |= (0x8000 >> i);
+                }
+
+                activePattern = pattern & mask;
+                for (int i = 0; i < length; i++)
+                {
+                    if ((activePattern & (0x8000 >> i)) != 0)
+                    {
+                        if (chip16->gfx[basePos + i] == 1)
+                        {
+                            chip16->V[0xF] = 1;
+                        }
+                        chip16->gfx[basePos + i] ^= 1;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < length; i++)
+                {
+                    if ((pattern & (0x8000 >> i)) != 0)
+                    {
+                        if (chip16->gfx[basePos + i] == 1)
+                        {
+                            chip16->V[0xF] = 1;
+                        }
+                        chip16->gfx[basePos + i] ^= 1;
+                    }
+                }
+            }
+            chip16->drawFlag = true;
+            break;
+
+        case 0x03: // FX03: Dibujar línea vertical
+            xPos = chip16->V[2] % DISPLAY_WIDTH;
+            yPos = chip16->V[3] % DISPLAY_HEIGHT;
+            height = chip16->V[4];
+            pattern = chip16->V[5];
+
+            if (height == 0 || height > DISPLAY_HEIGHT - yPos)
+            {
+                height = DISPLAY_HEIGHT - yPos;
+            }
+
+            chip16->V[0xF] = 0;
+            for (int i = 0; i < height; i++)
+            {
+                if ((pattern & (0x8000 >> (i % 16))) != 0)
+                {
+                    pixelPos = xPos + ((yPos + i) % DISPLAY_HEIGHT) * DISPLAY_WIDTH;
+
+                    if (chip16->gfx[pixelPos] == 1)
+                    {
+                        chip16->V[0xF] = 1;
+                    }
+                    chip16->gfx[pixelPos] ^= 1;
+                }
+            }
+
+            chip16->drawFlag = true;
+            break;
         case 0x07: // FX07: Establecer VX = valor del delay timer
             chip16->V[x] = chip16->delayTimer;
             break;
