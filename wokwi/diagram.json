@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "author": "CHIP-16 Emulator",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    {
+      "type": "wokwi-ili9341",
+      "id": "lcd1",
+      "top": -268,
+      "left": 412.5,
+      "attrs": { "rotate": "90" }
+    },
+    {
+      "type": "wokwi-membrane-keypad",
+      "id": "keypad1",
+      "top": -184.4,
+      "left": 696.8,
+      "attrs": { "rows": "4", "cols": "4", "keys": "123C456D789EA0BF" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn-reset",
+      "top": 198.2,
+      "left": 700.8,
+      "attrs": { "color": "red", "label": "RESET", "bounce": "0" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn-mode",
+      "top": 246.2,
+      "left": 700.8,
+      "attrs": { "color": "blue", "label": "MODE", "bounce": "0" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn-effect",
+      "top": 303.8,
+      "left": 700.8,
+      "attrs": { "color": "green", "label": "EFFECT", "xray": "", "bounce": "0" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led-mode",
+      "top": 250,
+      "left": 800,
+      "attrs": { "color": "blue" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led-effect",
+      "top": 300,
+      "left": 800,
+      "attrs": { "color": "green" }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer1",
+      "top": 453.6,
+      "left": 462.6,
+      "attrs": { "volume": "0.5" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r-led-mode",
+      "top": 250,
+      "left": 850,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r-led-effect",
+      "top": 300,
+      "left": 850,
+      "attrs": { "value": "220" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "lcd1:GND", "esp:GND.1", "black", [ "h0" ] ],
+    [ "lcd1:VCC", "esp:5V", "red", [ "h0" ] ],
+    [ "lcd1:MOSI", "esp:23", "blue", [ "h0" ] ],
+    [ "lcd1:SCK", "esp:18", "yellow", [ "h0" ] ],
+    [ "lcd1:MISO", "esp:19", "orange", [ "h0" ] ],
+    [ "lcd1:CS", "esp:15", "violet", [ "h0" ] ],
+    [ "lcd1:D/C", "esp:2", "green", [ "h0" ] ],
+    [ "lcd1:RST", "esp:4", "purple", [ "h0" ] ],
+    [ "keypad1:R1", "esp:13", "gray", [ "h0" ] ],
+    [ "keypad1:R2", "esp:12", "gray", [ "h0" ] ],
+    [ "keypad1:R3", "esp:14", "gray", [ "h0" ] ],
+    [ "keypad1:R4", "esp:27", "gray", [ "h0" ] ],
+    [ "keypad1:C1", "esp:26", "cyan", [ "h0" ] ],
+    [ "keypad1:C2", "esp:25", "cyan", [ "h0" ] ],
+    [ "keypad1:C3", "esp:33", "cyan", [ "h0" ] ],
+    [ "keypad1:C4", "esp:32", "cyan", [ "h0" ] ],
+    [ "btn-reset:1.l", "esp:5", "red", [ "h0" ] ],
+    [ "btn-reset:2.r", "esp:GND.2", "black", [ "h0" ] ],
+    [ "btn-mode:1.l", "esp:22", "blue", [ "h0" ] ],
+    [ "btn-mode:2.r", "esp:GND.2", "black", [ "h0" ] ],
+    [ "btn-effect:1.l", "esp:0", "green", [ "h0" ] ],
+    [ "btn-effect:2.r", "esp:GND.2", "black", [ "h0" ] ],
+    [ "r-led-mode:1", "esp:16", "blue", [ "h0" ] ],
+    [ "r-led-mode:2", "led-mode:A", "blue", [ "h0" ] ],
+    [ "led-mode:C", "esp:GND.2", "black", [ "h0" ] ],
+    [ "r-led-effect:1", "esp:17", "green", [ "h0" ] ],
+    [ "r-led-effect:2", "led-effect:A", "green", [ "h0" ] ],
+    [ "led-effect:C", "esp:GND.2", "black", [ "h0" ] ],
+    [ "buzzer1:1", "esp:21", "magenta", [ "h0" ] ],
+    [ "buzzer1:2", "esp:GND.2", "black", [ "h0" ] ]
+  ],
+  "dependencies": {}
+}
