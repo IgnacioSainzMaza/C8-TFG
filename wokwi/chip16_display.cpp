@@ -66,33 +66,50 @@ void chip16_display_render(Display* display, Chip16* chip) {
 
     // Procesar efectos
     chip16_process_effects(chip);
-    
+
     // Obtener color
     uint16_t pixelColor = chip16_display_get_color(chip);
-    
+
+    // Detectar si toda la pantalla está en negro (CLS)
+    bool allBlack = true;
+    for (int i = 0; i < CHIP16_WIDTH * CHIP16_HEIGHT; i++) {
+        if (chip->gfxEffect[i] != 0) {
+            allBlack = false;
+            break;
+        }
+    }
+
+    // Si toda la pantalla está negra, hacer un fillScreen rápido
+    if (allBlack) {
+        tft.fillScreen(ILI9341_BLACK);
+        memset(display->lastGfx, 0, CHIP16_WIDTH * CHIP16_HEIGHT);
+        chip->drawFlag = false;
+        return;
+    }
+
     uint32_t pixelsChanged = 0;
-    
+
     for (int cy = 0; cy < CHIP16_HEIGHT; cy++) {
         for (int cx = 0; cx < CHIP16_WIDTH; cx++) {
             int idx = cx + (cy * CHIP16_WIDTH);
-            
+
             // Solo dibujar si el píxel cambió desde el último frame
             if (chip->gfxEffect[idx] != display->lastGfx[idx]) {
                 uint16_t color = chip->gfxEffect[idx] ? pixelColor : ILI9341_BLACK;
                 uint16_t screenX = cx * PIXEL_SCALE;
                 uint16_t screenY = cy * PIXEL_SCALE;
-                
+
                 tft.fillRect(screenX, screenY, PIXEL_SCALE, PIXEL_SCALE, color);
-                
+
                 // Actualizar cache
                 display->lastGfx[idx] = chip->gfxEffect[idx];
                 pixelsChanged++;
             }
         }
     }
-    
+
     chip->drawFlag = false;
-    
+
 
 }
 

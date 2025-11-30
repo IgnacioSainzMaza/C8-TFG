@@ -166,6 +166,7 @@ void chip16_cycle(Chip16* chip) {
         switch (kk) {
             case 0xE0:  // 00E0: CLS - Limpiar pantalla
                 memset(chip->gfx, 0, CHIP16_WIDTH * CHIP16_HEIGHT);
+                memset(chip->gfxEffect, 0, CHIP16_WIDTH * CHIP16_HEIGHT);
                 chip->drawFlag = true;
                 break;
                 

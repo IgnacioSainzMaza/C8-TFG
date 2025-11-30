@@ -1,6 +1,7 @@
 #include "chip16_input.h"
 #include <driver/gpio.h>
 #include <esp_log.h>
+#include <esp_rom_sys.h>
 
 // Tag para logging (opcional, pero útil para debug)
 static const char* TAG = "CHIP16_INPUT";
@@ -72,7 +73,7 @@ void chip16_input_scan_keypad(Chip16* chip) {
         
         // 2. Pequeño delay para estabilización de señal (1 microsegundo)
         // En un teclado matricial, esto es crucial para lecturas confiables
-        ets_delay_us(1);
+        esp_rom_delay_us(1);
         
         // 3. Leer cada columna
         for (int col = 0; col < KEYPAD_COLS; col++) {
