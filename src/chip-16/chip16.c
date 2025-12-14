@@ -14,8 +14,6 @@ void chip16Init(Chip16 *chip16)
     chip16->config.pixelColor = DEFAULT_PIXEL_COLOR;
     chip16->mode = MODE_8BIT;
     
-    
-
     // Inicializar registros y memoria
     memset(chip16->memory, 0, MEMORY_SIZE);
     memset(chip16->V, 0, REGISTER_COUNT * sizeof(uint16_t));
@@ -24,7 +22,6 @@ void chip16Init(Chip16 *chip16)
     memset(chip16->stack, 0, STACK_SIZE * sizeof(uint16_t));
     memset(chip16->gfx2Buffer, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT);
     
-
     chip16->opcode = 0;
     chip16->I = 0;
     chip16->PC = ROM_LOAD_ADDRESS; // Los programas comienzan en 0x200
