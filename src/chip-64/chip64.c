@@ -778,18 +778,48 @@ void chip64Cycle(Chip64 *chip64)
         switch (kk)
         {
         case 0x01: // E001: CALLP - Llamada con parámetros 
-            if (chip64->config.debugLevel >= DEBUG_OPCODES)
-            {
-                printf("⚠️  CALLP mal codificado (usar 0x0001)\n");
-            }
-            break;
+            if (chip64->SP + 4 <= STACK_SIZE) {
+                    chip64->stack[chip64->SP] = chip64->PC;
+                    chip64->stack[chip64->SP + 1] = chip64->V[0xD] & 0xFFFF;
+                    chip64->stack[chip64->SP + 2] = chip64->V[0xE] & 0xFFFF;
+                    chip64->stack[chip64->SP + 3] = chip64->V[REG_VF] & 0xFFFF;
+                    chip64->SP += 4;
+                    
+                    // Configurar registros especiales
+                    chip64->V[0xD] = (chip64->V[1] >> 8) & 0xFF;
+                    chip64->V[0xE] = chip64->V[1] & 0xFF;
+                    chip64->V[REG_VF] = y;  // Número de parámetros
+                    chip64->PC = chip64->V[0] & 0xFFFF;
+                    
+                    if (chip64->config.debugLevel >= DEBUG_OPCODES) {
+                        printf("CALLP %d params (→ 0x%04X, SP=%d)\n", y, chip64->PC, chip64->SP);
+                    }
+                } else if (chip64->config.debugLevel >= DEBUG_OPCODES) {
+                    printf("⚠️  ERROR: Stack overflow en CALLP\n");
+                }
+                break;
 
         case 0x02: // E002: RETV - Retorno con valor
-            if (chip64->config.debugLevel >= DEBUG_OPCODES)
             {
-                printf("⚠️  RETV mal codificado (usar 0x0002)\n");
-            }
-            break;
+                    uint64_t returnValue = chip64->V[y];
+                    
+                    if (chip64->SP >= 4) {
+                        chip64->SP -= 4;
+                        chip64->V[REG_VF] = chip64->stack[chip64->SP + 3];
+                        chip64->V[0xE] = chip64->stack[chip64->SP + 2];
+                        chip64->V[0xD] = chip64->stack[chip64->SP + 1];
+                        chip64->PC = chip64->stack[chip64->SP];
+                        chip64->V[0] = returnValue;
+                        
+                        if (chip64->config.debugLevel >= DEBUG_OPCODES) {
+                            printf("RETV V%X (val=0x%llX, → 0x%04X, SP=%d)\n", 
+                                   y, (unsigned long long)returnValue, chip64->PC, chip64->SP);
+                        }
+                    } else if (chip64->config.debugLevel >= DEBUG_OPCODES) {
+                        printf("⚠️  ERROR: Stack underflow en RETV\n");
+                    }
+                }
+                break;
 
         case 0x03: // E003: RND16 - Aleatorio 16 bits completo 
             chip64->V[x] = rand() % 65536;
