@@ -777,25 +777,48 @@ void chip64Cycle(Chip64 *chip64)
     case 0xE000:
         switch (kk)
         {
-        case 0x01: // E001: RND16 --> Aleatorio 16 bits
-            chip64->V[x] = rand() % 65536;
+        case 0x01: // E001: CALLP - Llamada con parámetros 
             if (chip64->config.debugLevel >= DEBUG_OPCODES)
             {
-                printf("RND16 V%X = 0x%04llX\n", x, (unsigned long long)(chip64->V[x] & 0xFFFF));
+                printf("⚠️  CALLP mal codificado (usar 0x0001)\n");
             }
             break;
 
-        case 0x02: // E002: RNDR --> Aleatorio en rango
-            range = (x + 1) % REGISTER_COUNT;
-                if (chip64->V[range] > 0) {
-                    chip64->V[x] = rand() % (chip64->V[range] & 0xFFFF);
-                } else {
+        case 0x02: // E002: RETV - Retorno con valor
+            if (chip64->config.debugLevel >= DEBUG_OPCODES)
+            {
+                printf("⚠️  RETV mal codificado (usar 0x0002)\n");
+            }
+            break;
+
+        case 0x03: // E003: RND16 - Aleatorio 16 bits completo 
+            chip64->V[x] = rand() % 65536;
+            if (chip64->config.debugLevel >= DEBUG_OPCODES)
+            {
+                printf("RND16 V%X = 0x%04llX\n", x, (unsigned long long)chip64->V[x]);
+            }
+            break;
+
+        case 0x04: // E004: RNDR - Aleatorio en rango
+            {
+                uint8_t rangeReg = (x + 1) % REGISTER_COUNT;
+                if (chip64->V[rangeReg] > 0)
+                {
+                    chip64->V[x] = rand() % (chip64->V[rangeReg] & 0xFFFF);
+                }
+                else
+                {
                     chip64->V[x] = 0;
                 }
-                if (chip64->config.debugLevel >= DEBUG_OPCODES) {
-                    printf("RNDR V%X (max=V%X)\n", x, range);
+                if (chip64->config.debugLevel >= DEBUG_OPCODES)
+                {
+                    printf("RNDR V%X (max=V%X=%llu, result=%llu)\n",
+                           x, rangeReg,
+                           (unsigned long long)chip64->V[rangeReg],
+                           (unsigned long long)chip64->V[x]);
                 }
-                break;
+            }
+            break;
 
         case 0x9E: // EX9E: SKP Vx - Saltar si tecla presionada
                 if (chip64->key[chip64->V[x] & 0xF] != 0) {
