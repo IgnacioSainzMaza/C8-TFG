@@ -45,7 +45,9 @@ int main(int argc, char** argv) {
     // Variables para control de tiempo
     Uint32 lastCycleTime = SDL_GetTicks();
     Uint32 lastTimerUpdate = lastCycleTime;
-    int instructionsPerSecond = 700;  // Configuración predeterminada
+    Uint32 lastRenderTime = lastCycleTime; // Agregar variable para controlar renderizado
+
+    int instructionsPerSecond = 1200;  // Configuración predeterminada
     bool quit = false;
     SDL_Event event;
     
@@ -69,15 +71,21 @@ int main(int argc, char** argv) {
             }
             lastCycleTime = currentTime;
         }
-        
-        // Renderizar pantalla si es necesario
-        displayRender(&display, &chip8, argc > 2 ? argv[2] : NULL);
-        
+        // // Renderizar pantalla si es necesario
+        // displayRender(&display, &chip8, argc > 2 ? argv[2] : NULL);
+        // Dentro del bucle principal, antes de displayRender
+        if (currentTime - lastRenderTime >= 16)
+        {
+            displayRender(&display, &chip8, argc > 2 ? argv[2] : NULL);
+            lastRenderTime = currentTime;
+        }
+
         // Pequeña pausa para evitar uso excesivo de CPU
         SDL_Delay(1);
     }
     
     // Liberar recursos
+    SDL_CloseAudioDevice(chip8.config.beep.dev);
     displayCleanup(&display);
     SDL_Quit();
     

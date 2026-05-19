@@ -1,8 +1,29 @@
+#define _USE_MATH_DEFINES
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include "chip8.h"
+
+// Función de callback de audio para generar el sonido de beep
+static void audioCallback(void *userdata, Uint8 *stream, int len)
+{
+    BeepState *beep = (BeepState *)userdata;
+    Sint16 *buffer  = (Sint16 *)stream;
+    int samples     = len / sizeof(Sint16);
+
+    for (int i = 0; i < samples; i++) {
+        if (beep->active) {
+            buffer[i] = (Sint16)(AUDIO_VOLUME * sin(beep->phase)); // Generar onda senoidal
+            beep->phase += 2.0 * M_PI * AUDIO_FREQUENCY / AUDIO_SAMPLE_RATE; // Incrementar fase para la siguiente muestra
+            if (beep->phase > 2.0 * M_PI)
+                beep->phase -= 2.0 * M_PI; // Mantener la fase dentro de un ciclo
+        } else {
+            buffer[i] = 0;
+        }
+    }
+}
 
 // Inicialización del emulador CHIP-8
 void chip8Init(Chip8 *chip8)
@@ -12,14 +33,12 @@ void chip8Init(Chip8 *chip8)
     chip8->config.clockSpeed = DEFAULT_SPEED;
     chip8->config.enableSound = true;
     chip8->config.pixelColor = DEFAULT_PIXEL_COLOR;
-
     // Inicializar registros y memoria
     memset(chip8->memory, 0, MEMORY_SIZE);
     memset(chip8->V, 0, REGISTER_COUNT);
     memset(chip8->gfx, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT);
     memset(chip8->key, 0, KEY_COUNT);
     memset(chip8->stack, 0, STACK_SIZE * sizeof(uint16_t));
-
     chip8->opcode = 0;
     chip8->I = 0;
     chip8->PC = ROM_LOAD_ADDRESS; // Los programas comienzan en 0x200
@@ -27,12 +46,23 @@ void chip8Init(Chip8 *chip8)
     chip8->delayTimer = 0;
     chip8->soundTimer = 0;
     chip8->drawFlag = false;
-
     // Cargar fuente en memoria
     memcpy(chip8->memory, chip8_fontset, FONTSET_SIZE);
-
     // Inicializar semilla para números aleatorios
     srand(time(NULL));
+    // Inicializar audio
+    chip8->config.beep.phase  = 0.0;
+    chip8->config.beep.active = false;
+    SDL_AudioSpec want = {
+        .freq     = AUDIO_SAMPLE_RATE,
+        .format   = AUDIO_S16SYS,
+        .channels = 1,
+        .samples  = AUDIO_SAMPLES,
+        .callback = audioCallback,
+        .userdata = &chip8->config.beep
+    };
+    chip8->config.beep.dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+    SDL_PauseAudioDevice(chip8->config.beep.dev, 0);
 }
 
 // Cargar ROM desde archivo
@@ -44,12 +74,10 @@ bool chip8LoadROM(Chip8 *chip8, const char *filename)
         fprintf(stderr, "Error: No se pudo abrir el archivo %s\n", filename);
         return false;
     }
-
     // Determinar tamaño del archivo
     fseek(file, 0, SEEK_END);
     long fileSize = ftell(file);
     fseek(file, 0, SEEK_SET);
-
     // Verificar que la ROM cabe en memoria
     if (fileSize > MEMORY_SIZE - ROM_LOAD_ADDRESS)
     {
@@ -57,17 +85,14 @@ bool chip8LoadROM(Chip8 *chip8, const char *filename)
         fclose(file);
         return false;
     }
-
     // Leer ROM en memoria
     size_t bytesRead = fread(&chip8->memory[ROM_LOAD_ADDRESS], 1, fileSize, file);
     fclose(file);
-
-    if (bytesRead != fileSize)
+    if (bytesRead != (size_t)fileSize)
     {
         fprintf(stderr, "Error: No se pudo leer el archivo completo\n");
         return false;
     }
-
     return true;
 }
 
@@ -78,15 +103,18 @@ void chip8UpdateTimers(Chip8 *chip8)
     {
         chip8->delayTimer--;
     }
-
     if (chip8->soundTimer > 0)
-    {
-        if (chip8->config.enableSound && chip8->soundTimer == 1)
+    {   
+        if (chip8->config.enableSound)
         {
-            // Aquí se implementaría la reproducción de sonido
+            chip8->config.beep.active = true;
             printf("BEEP!\n");
         }
         chip8->soundTimer--;
+    }
+    else
+    {
+        chip8->config.beep.active = false;
     }
 }
 
@@ -204,12 +232,10 @@ void chip8Cycle(Chip8 *chip8)
             break;
 
         case 0x4: // 8XY4: Establecer VX = VX + VY, VF = carry
-        {
             int sum = chip8->V[x] + chip8->V[y];
             chip8->V[0xF] = (sum > 255) ? 1 : 0;
             chip8->V[x] = sum & 0xFF;
-        }
-        break;
+            break;
 
         case 0x5: // 8XY5: Establecer VX = VX - VY, VF = not borrow
             chip8->V[0xF] = (chip8->V[x] > chip8->V[y]) ? 1 : 0;
@@ -217,10 +243,8 @@ void chip8Cycle(Chip8 *chip8)
             break;
 
         case 0x6: // 8XY6: Desplazar VX a la derecha, VF = bit menos significativo
-
             chip8->V[0xF] = chip8->V[x] & 0x1;
             chip8->V[x] >>= 1;
-
             break;
 
         case 0x7: // 8XY7: Establecer VX = VY - VX, VF = not borrow
@@ -229,10 +253,8 @@ void chip8Cycle(Chip8 *chip8)
             break;
 
         case 0xE: // 8XYE: Desplazar VX a la izquierda, VF = bit más significativo
-
             chip8->V[0xF] = (chip8->V[x] & 0x80) >> 7;
             chip8->V[x] <<= 1;
-
             break;
         }
         break;
@@ -260,14 +282,10 @@ void chip8Cycle(Chip8 *chip8)
     {
         uint16_t xPos = chip8->V[x] % DISPLAY_WIDTH;
         uint16_t yPos = chip8->V[y] % DISPLAY_HEIGHT;
-        uint16_t height = n;
-
         chip8->V[0xF] = 0; // Reset del flag de colisión
-
-        for (int row = 0; row < height; row++)
+        for (int row = 0; row < n; row++)
         {
             uint8_t spriteData = chip8->memory[chip8->I + row];
-
             for (int col = 0; col < 8; col++)
             {
                 if ((spriteData & (0x80 >> col)) != 0)
@@ -276,19 +294,16 @@ void chip8Cycle(Chip8 *chip8)
                     int pixelX = (xPos + col) % DISPLAY_WIDTH;
                     int pixelY = (yPos + row) % DISPLAY_HEIGHT;
                     int pixelPos = pixelX + (pixelY * DISPLAY_WIDTH);
-
-                    // Comprobar colisión
+                    // Se comprueba colisión
                     if (chip8->gfx[pixelPos] == 1)
                     {
                         chip8->V[0xF] = 1;
                     }
-
                     // XOR con el pixel existente
                     chip8->gfx[pixelPos] ^= 1;
                 }
             }
         }
-
         chip8->drawFlag = true;
     }
     break;
@@ -322,7 +337,6 @@ void chip8Cycle(Chip8 *chip8)
         case 0x0A: // FX0A: Esperar presión de tecla, almacenar en VX
         {
             bool keyPressed = false;
-
             for (int i = 0; i < KEY_COUNT; i++)
             {
                 if (chip8->key[i])
@@ -332,7 +346,6 @@ void chip8Cycle(Chip8 *chip8)
                     break;
                 }
             }
-
             // Si no se presionó tecla, repetir instrucción
             if (!keyPressed)
             {
@@ -353,7 +366,7 @@ void chip8Cycle(Chip8 *chip8)
             chip8->I += chip8->V[x];
             break;
 
-        case 0x29:                      // FX29: Establecer I = dirección del carácter en VX
+        case 0x29: // FX29: Establecer I = dirección del carácter en VX
             chip8->I = chip8->V[x] * 5; // Cada carácter ocupa 5 bytes
             break;
 

@@ -67,21 +67,11 @@ void displayRender(Display* display, Chip8* chip8, const char* colorArg) {
     if (!chip8->drawFlag) {
         return;  // No hay necesidad de actualizar la pantalla
     }
-    
     // Determinar el color del pixel
-    uint32_t pixelColor;
-    if (colorArg != NULL) {
-        // Convertir argumento de color de string a uint32
-        pixelColor = strtoul(colorArg, NULL, 16);
-    } else {
-        // Usar color predeterminado
-        pixelColor = chip8->config.pixelColor;
-    }
-    
+    uint32_t pixelColor = colorArg ? (uint32_t)strtoul(colorArg, NULL, 16) : chip8->config.pixelColor;
     // Crear buffer de pixels para la textura
     uint32_t pixels[DISPLAY_WIDTH * DISPLAY_HEIGHT];
     memset(pixels, 0, sizeof(pixels));  // Limpiar buffer con negro
-    
     // Convertir el estado de gfx[] a pixeles con color
     for (int y = 0; y < DISPLAY_HEIGHT; y++) {
         for (int x = 0; x < DISPLAY_WIDTH; x++) {
@@ -91,10 +81,8 @@ void displayRender(Display* display, Chip8* chip8, const char* colorArg) {
             }
         }
     }
-    
     // Actualizar textura con nuevos datos
     SDL_UpdateTexture(display->texture, NULL, pixels, DISPLAY_WIDTH * sizeof(uint32_t));
-    
     // Renderizar
     SDL_RenderClear(display->renderer);
     SDL_RenderCopy(display->renderer, display->texture, NULL, NULL);

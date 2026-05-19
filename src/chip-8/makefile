@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -O2
-LDFLAGS = -lSDL2
+LDFLAGS = -lmingw32 -lSDL2main -lSDL2 -lm
 INCLUDES = -I/usr/include/SDL2
 
 # Los archivos fuente están en el mismo directorio que el Makefile
