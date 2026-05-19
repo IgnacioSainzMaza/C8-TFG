@@ -29,7 +29,6 @@ bool inputProcess(SDL_Event* event, Chip8* chip8) {
                 break;
         }
     }
-    
     return quit;
 }
 
