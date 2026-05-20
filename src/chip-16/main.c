@@ -1,69 +1,75 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>          // <- AÑADIR
 #include <SDL2/SDL.h>
 #include "chip16.h"
 #include "display.h"
 #include "input.h"
 
 int main(int argc, char** argv) {
-    // Verificar argumentos
     if (argc < 2) {
-        printf("Uso: %s <archivo-rom> [color-pixel-hex]\n", argv[0]);
         return EXIT_FAILURE;
     }
     
-    // Inicializar SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "Error al inicializar SDL: %s\n", SDL_GetError());
         return EXIT_FAILURE;
     }
     
-    // Crear título de ventana
     char title[256];
     snprintf(title, sizeof(title), "TFG -> Emulador CHIP-16: %s", argv[1]);
     
-    // Inicializar componentes
     Chip16 chip16;
     Display display;
     memset(&chip16, 0, sizeof(Chip16));
-    // Inicializar emulador
     chip16Init(&chip16);
+
+    // Leer argumento de modo (argv[3], opcional)
+    if (argc >= 4) {
+        if (strcmp(argv[3], "8") == 0) {
+            chip16.mode = MODE_8BIT;
+            printf("Modo de emulación: CHIP-8 (8 bits)\n");
+        } else if (strcmp(argv[3], "16") == 0) {
+            chip16.mode = MODE_16BIT;
+            printf("Modo de emulación: CHIP-16 (16 bits)\n");
+        } else {
+            fprintf(stderr, "Advertencia: modo '%s' no reconocido. Usando 16 bits.\n", argv[3]);
+        }
+    }
+
+    // Leer argumento de color (argv[2], opcional)  // <- AÑADIR ESTE BLOQUE
+    const char* colorArg = NULL;
+    if (argc > 2 && strcmp(argv[2], "-") != 0) {
+        colorArg = argv[2];
+    }
     
-    // Inicializar pantalla
     if (!displayInit(&display, title)) {
         SDL_Quit();
         return EXIT_FAILURE;
     }
     
-    // Cargar ROM
     if (!chip16LoadROM(&chip16, argv[1])) {
         displayCleanup(&display);
         SDL_Quit();
         return EXIT_FAILURE;
     }
     
-    // Variables para control de tiempo
-    Uint32 lastCycleTime = SDL_GetTicks();
+    Uint32 lastCycleTime   = SDL_GetTicks();
     Uint32 lastTimerUpdate = lastCycleTime;
-    Uint32 lastRenderTime = lastCycleTime;
-    int instructionsPerSecond = 1200;  // Configuración predeterminada
+    Uint32 lastRenderTime  = lastCycleTime;
+    int instructionsPerSecond = 1200;
     bool quit = false;
     SDL_Event event;
     
-    
-    // Bucle principal de emulación
     while (!quit) {
-        // Procesar entrada
         quit = inputProcess(&event, &chip16, &display);
         
-        // Actualizar temporizadores a 60Hz 
         Uint32 currentTime = SDL_GetTicks();
         if (currentTime - lastTimerUpdate >= 16) {
             chip16UpdateTimers(&chip16);
             lastTimerUpdate = currentTime;
         }
         
-        // Ejecutar instrucciones a velocidad constante
         int cycleTarget = (currentTime - lastCycleTime) * instructionsPerSecond / 1000;
         if (cycleTarget > 0) {
             for (int i = 0; i < cycleTarget; i++) {
@@ -72,16 +78,14 @@ int main(int argc, char** argv) {
             lastCycleTime = currentTime;
         }
         
-        // Renderizar pantalla si es necesario
         if (currentTime - lastRenderTime >= 16) {
-            displayRender(&display, &chip16, argc > 2 ? argv[2] : NULL);
+            displayRender(&display, &chip16, colorArg);  // <- CAMBIAR
             lastRenderTime = currentTime;
         }
 
-        SDL_Delay(1); // Pequeña pausa para evitar uso excesivo de CPU
+        SDL_Delay(1);
     }
     
-    // Liberar recursos
     SDL_CloseAudioDevice(chip16.config.beepState.dev);
     displayCleanup(&display);
     SDL_Quit();

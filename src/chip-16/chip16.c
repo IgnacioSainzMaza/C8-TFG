@@ -44,7 +44,7 @@ void chip16Init(Chip16 *chip16)
     chip16->config.clockSpeed = DEFAULT_SPEED;
     chip16->config.enableSound = true;
     chip16->config.pixelColor = DEFAULT_PIXEL_COLOR;
-    chip16->mode = MODE_8BIT;
+    chip16->mode = MODE_16BIT;
 
     // Inicializar registros y memoria
     memset(chip16->memory, 0, MEMORY_SIZE);
@@ -218,8 +218,8 @@ void chip16Cycle(Chip16 *chip16)
     uint16_t returnValue, memValue;
     bool found;
     uint8_t range;
-    int basePos, pixelPos, pixelX, pixelY;
-    uint16_t spriteData, activePattern, mask;
+    int pixelPos, pixelX, pixelY;
+    uint16_t spriteData;
 
     // Depuración si está habilitada
     if (chip16->config.debugLevel >= DEBUG_OPCODES)
@@ -625,17 +625,11 @@ void chip16Cycle(Chip16 *chip16)
             break;
 
         case 0x9E: // EX9E: Saltar siguiente instrucción si tecla VX está presionada
-            if (chip16->key[chip16->V[x]] != 0)
-            {
-                chip16->PC += 2;
-            }
-            break;
+            if (chip16->V[x] < KEY_COUNT && chip16->key[chip16->V[x]] != 0) chip16->PC += 2;
+             break;
 
         case 0xA1: // EXA1: Saltar siguiente instrucción si tecla VX no está presionada
-            if (chip16->key[chip16->V[x]] == 0)
-            {
-                chip16->PC += 2;
-            }
+            if (chip16->V[x] < KEY_COUNT && chip16->key[chip16->V[x]] == 0) chip16->PC += 2;
             break;
         }
         break;
@@ -685,41 +679,15 @@ void chip16Cycle(Chip16 *chip16)
                 length = DISPLAY_WIDTH - xPos;
             }
 
-            chip16->V[0xF] = 0; // Reset del flag de colisión
-            basePos = xPos + (yPos * DISPLAY_WIDTH);
-            if (length <= 16)
+            chip16->V[0xF] = 0;
+            for (int i = 0; i < length; i++)
             {
-                mask = 0;
-                for (int i = 0; i < length; i++)
+                if ((pattern & (0x8000 >> (i % 16))) != 0)
                 {
-                    mask |= (0x8000 >> i);
-                }
-
-                activePattern = pattern & mask;
-                for (int i = 0; i < length; i++)
-                {
-                    if ((activePattern & (0x8000 >> i % 16)) != 0)
-                    {
-                        if (chip16->gfx[basePos + i] == 1)
-                        {
-                            chip16->V[0xF] = 1;
-                        }
-                        chip16->gfx[basePos + i] ^= 1;
-                    }
-                }
-            }
-            else
-            {
-                for (int i = 0; i < length; i++)
-                {
-                    if ((pattern & (0x8000 >> i)) != 0)
-                    {
-                        if (chip16->gfx[basePos + i] == 1)
-                        {
-                            chip16->V[0xF] = 1;
-                        }
-                        chip16->gfx[basePos + i] ^= 1;
-                    }
+                    pixelPos = ((xPos + i) % DISPLAY_WIDTH) + (yPos * DISPLAY_WIDTH);
+                    if (chip16->gfx[pixelPos] == 1)
+                        chip16->V[0xF] = 1;
+                    chip16->gfx[pixelPos] ^= 1;
                 }
             }
             chip16->drawFlag = true;
@@ -741,7 +709,7 @@ void chip16Cycle(Chip16 *chip16)
             {
                 if ((pattern & (0x8000 >> (i % 16))) != 0)
                 {
-                    pixelPos = ((xPos + i) % DISPLAY_WIDTH) + (yPos * DISPLAY_WIDTH);
+                    pixelPos = xPos + (((yPos + i) % DISPLAY_HEIGHT) * DISPLAY_WIDTH);
 
                     if (chip16->gfx[pixelPos] == 1) chip16->V[0xF] = 1;
                     chip16->gfx[pixelPos] ^= 1;

@@ -151,13 +151,12 @@ void displayToggleDualWindow(Display* display, Chip16* chip16) {
 
 // Renderizar el estado actual del emulador
 void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
+    
     chip16ProcessEffects(chip16);
     if (!chip16->drawFlag) {
         return;  // No hay necesidad de actualizar la pantalla
     }
 
-    
-    
     // Determinar el color del pixel
     uint32_t pixelColor;
     if (chip16->currentEffect == EFFECT_COLOR_CYCLE) {
