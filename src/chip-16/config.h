@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <SDL2/SDL.h>
 
 // Constantes del sistema CHIP-8
 #define MEMORY_SIZE 4096
@@ -22,6 +23,12 @@
 // Configuraciones de emulación
 #define DEFAULT_SPEED 5  // Retardo en milisegundos entre instrucciones
 #define TIMER_FREQ 60    // Frecuencia de actualización de timers (60Hz)
+
+// Configuraciones de audio
+#define AUDIO_SAMPLE_RATE 44100 // Frecuencia de muestreo para el audio
+#define AUDIO_SAMPLES     512 // Tamaño del buffer de audio
+#define AUDIO_FREQUENCY   440.0 // Frecuencia de la nota A4 (La4) para el sonido del buzzer
+#define AUDIO_VOLUME      28000 // Volumen del sonido (ajustable entre 0 y 32767)
 
 
 // Niveles de depuración
@@ -55,13 +62,23 @@ static const uint32_t COLOR_PALETTE[COLOR_PALETTE_SIZE] = {
     0xFFFFFFFF   // Blanco
 };
 
-#define COLOR_CYCLE_FRAMES 10 // Índice del color por defecto en la paleta (A 60 Hz cambia 10 veces por segundo) ¿REVISAR?
+#define COLOR_CYCLE_FRAMES 1 // Índice del color por defecto en la paleta (A 60 Hz cambia 1 veces por segundo)
+
+// Estado del dispositivo de audio
+typedef struct {
+    SDL_AudioDeviceID dev;
+    double            phase;
+    volatile bool     active;
+} BeepState;
+
+
 // Configuración global
 typedef struct {
     DebugLevel debugLevel;
     int clockSpeed;
     bool enableSound;
     uint32_t pixelColor;
+    BeepState beepState;
 } Config;
 
 #endif // CONFIG_H

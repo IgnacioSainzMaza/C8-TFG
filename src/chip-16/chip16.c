@@ -1,8 +1,29 @@
+#define _USE_MATH_DEFINES
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include "chip16.h"
+
+// Función de callback de audio para generar el sonido de beep
+static void audioCallback(void *userdata, Uint8 *stream, int len)
+{
+    BeepState *beep = (BeepState *)userdata;
+    Sint16 *buffer  = (Sint16 *)stream;
+    int samples     = len / sizeof(Sint16);
+
+    for (int i = 0; i < samples; i++) {
+        if (beep->active) {
+            buffer[i] = (Sint16)(AUDIO_VOLUME * sin(beep->phase));
+            beep->phase += 2.0 * M_PI * AUDIO_FREQUENCY / AUDIO_SAMPLE_RATE;
+            if (beep->phase > 2.0 * M_PI)
+                beep->phase -= 2.0 * M_PI;
+        } else {
+            buffer[i] = 0;
+        }
+    }
+}
 
 // Inicialización del emulador CHIP-16
 void chip16Init(Chip16 *chip16)
@@ -38,6 +59,21 @@ void chip16Init(Chip16 *chip16)
 
     // Inicializar semilla para números aleatorios
     srand(time(NULL));
+
+    // Inicializar audio
+    chip16->config.beepState.phase = 0.0;
+    chip16->config.beepState.active = false;
+    SDL_AudioSpec want = {
+        .freq = AUDIO_SAMPLE_RATE,
+        .format = AUDIO_S16SYS,
+        .channels = 1,
+        .samples = AUDIO_SAMPLES,
+        .callback = audioCallback,
+        .userdata = &chip16->config.beepState
+    };
+    chip16->config.beepState.dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+    SDL_PauseAudioDevice(chip16->config.beepState.dev, 0); // Iniciar audio
+
 }
 
 // Cargar ROM desde archivo
@@ -85,13 +121,17 @@ void chip16UpdateTimers(Chip16 *chip16)
     }
 
     if (chip16->soundTimer > 0)
-    {
-        if (chip16->config.enableSound && chip16->soundTimer == 1)
+    {   
+        if (chip16->config.enableSound)
         {
-            // Aquí se implementaría la reproducción de sonido
+            chip16->config.beepState.active = true;
             printf("BEEP!\n");
         }
         chip16->soundTimer--;
+    }
+    else
+    {
+        chip16->config.beepState.active = false;
     }
 }
 

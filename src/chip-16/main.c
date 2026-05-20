@@ -45,7 +45,8 @@ int main(int argc, char** argv) {
     // Variables para control de tiempo
     Uint32 lastCycleTime = SDL_GetTicks();
     Uint32 lastTimerUpdate = lastCycleTime;
-    int instructionsPerSecond = 700;  // Configuración predeterminada
+    Uint32 lastRenderTime = lastCycleTime;
+    int instructionsPerSecond = 1200;  // Configuración predeterminada
     bool quit = false;
     SDL_Event event;
     
@@ -72,13 +73,16 @@ int main(int argc, char** argv) {
         }
         
         // Renderizar pantalla si es necesario
-        displayRender(&display, &chip16, argc > 2 ? argv[2] : NULL);
-        
-        // Pequeña pausa para evitar uso excesivo de CPU
-        SDL_Delay(1);
+        if (currentTime - lastRenderTime >= 16) {
+            displayRender(&display, &chip16, argc > 2 ? argv[2] : NULL);
+            lastRenderTime = currentTime;
+        }
+
+        SDL_Delay(1); // Pequeña pausa para evitar uso excesivo de CPU
     }
     
     // Liberar recursos
+    SDL_CloseAudioDevice(chip16.config.beepState.dev);
     displayCleanup(&display);
     SDL_Quit();
     
