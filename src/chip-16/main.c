@@ -20,12 +20,12 @@ int main(int argc, char** argv) {
     
     // Crear título de ventana
     char title[256];
-    snprintf(title, sizeof(title), "CHIP-8 Emulator: %s", argv[1]);
+    snprintf(title, sizeof(title), "TFG -> Emulador CHIP-16: %s", argv[1]);
     
     // Inicializar componentes
     Chip16 chip16;
     Display display;
-    
+    memset(&chip16, 0, sizeof(Chip16));
     // Inicializar emulador
     chip16Init(&chip16);
     

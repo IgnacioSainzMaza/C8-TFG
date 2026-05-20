@@ -10,16 +10,20 @@
 static void audioCallback(void *userdata, Uint8 *stream, int len)
 {
     BeepState *beep = (BeepState *)userdata;
-    Sint16 *buffer  = (Sint16 *)stream;
-    int samples     = len / sizeof(Sint16);
+    Sint16 *buffer = (Sint16 *)stream;
+    int samples = len / sizeof(Sint16);
 
-    for (int i = 0; i < samples; i++) {
-        if (beep->active) {
+    for (int i = 0; i < samples; i++)
+    {
+        if (beep->active)
+        {
             buffer[i] = (Sint16)(AUDIO_VOLUME * sin(beep->phase));
             beep->phase += 2.0 * M_PI * AUDIO_FREQUENCY / AUDIO_SAMPLE_RATE;
             if (beep->phase > 2.0 * M_PI)
                 beep->phase -= 2.0 * M_PI;
-        } else {
+        }
+        else
+        {
             buffer[i] = 0;
         }
     }
@@ -28,13 +32,20 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
 // Inicialización del emulador CHIP-16
 void chip16Init(Chip16 *chip16)
 {
+    // Cerrar dispositivo de audio previo si existe
+    if (chip16->config.beepState.dev != 0)
+    {
+        SDL_CloseAudioDevice(chip16->config.beepState.dev);
+        chip16->config.beepState.dev = 0;
+    }
+
     // Inicializar configuración predeterminada
     chip16->config.debugLevel = DEBUG_NONE;
     chip16->config.clockSpeed = DEFAULT_SPEED;
     chip16->config.enableSound = true;
     chip16->config.pixelColor = DEFAULT_PIXEL_COLOR;
     chip16->mode = MODE_8BIT;
-    
+
     // Inicializar registros y memoria
     memset(chip16->memory, 0, MEMORY_SIZE);
     memset(chip16->V, 0, REGISTER_COUNT * sizeof(uint16_t));
@@ -42,7 +53,7 @@ void chip16Init(Chip16 *chip16)
     memset(chip16->key, 0, KEY_COUNT);
     memset(chip16->stack, 0, STACK_SIZE * sizeof(uint16_t));
     memset(chip16->gfx2Buffer, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT);
-    
+
     chip16->opcode = 0;
     chip16->I = 0;
     chip16->PC = ROM_LOAD_ADDRESS; // Los programas comienzan en 0x200
@@ -69,11 +80,9 @@ void chip16Init(Chip16 *chip16)
         .channels = 1,
         .samples = AUDIO_SAMPLES,
         .callback = audioCallback,
-        .userdata = &chip16->config.beepState
-    };
+        .userdata = &chip16->config.beepState};
     chip16->config.beepState.dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
     SDL_PauseAudioDevice(chip16->config.beepState.dev, 0); // Iniciar audio
-
 }
 
 // Cargar ROM desde archivo
@@ -121,7 +130,7 @@ void chip16UpdateTimers(Chip16 *chip16)
     }
 
     if (chip16->soundTimer > 0)
-    {   
+    {
         if (chip16->config.enableSound)
         {
             chip16->config.beepState.active = true;
@@ -144,36 +153,42 @@ void chip16SetKey(Chip16 *chip16, uint8_t key, uint8_t value)
     }
 }
 
-void chip16SetEffect(Chip16* chip16, GraphicsEffects effect) {
+void chip16SetEffect(Chip16 *chip16, GraphicsEffects effect)
+{
     chip16->currentEffect = effect;
-    chip16->effectTimer = 0;  // Reiniciar timer al cambiar efecto
-    
-    if (chip16->config.debugLevel >= DEBUG_OPCODES) {
-        printf("Efecto gráfico cambiado a: %s\n", 
+    chip16->effectTimer = 0; // Reiniciar timer al cambiar efecto
+
+    if (chip16->config.debugLevel >= DEBUG_OPCODES)
+    {
+        printf("Efecto gráfico cambiado a: %s\n",
                effect == EFFECT_NONE ? "Ninguno" : "Ciclo de color");
     }
 }
 
-void chip16ProcessEffects(Chip16* chip16) {
+void chip16ProcessEffects(Chip16 *chip16)
+{
     // SIEMPRE copiamos el buffer primario al de efectos
-    memcpy(chip16->gfx2Buffer, chip16->gfx, 
+    memcpy(chip16->gfx2Buffer, chip16->gfx,
            DISPLAY_WIDTH * DISPLAY_HEIGHT);
-    
+
     // Si hay un efecto activo, actualizar su estado
-    if (chip16->currentEffect == EFFECT_COLOR_CYCLE) {
+    if (chip16->currentEffect == EFFECT_COLOR_CYCLE)
+    {
         // Incrementar el timer
         chip16->effectTimer++;
-        
+
         // ¿Es momento de cambiar de color?
-        if (chip16->effectTimer >= COLOR_CYCLE_FRAMES) {
-            chip16->effectTimer = 0;  // Reiniciar timer
-            
+        if (chip16->effectTimer >= COLOR_CYCLE_FRAMES)
+        {
+            chip16->effectTimer = 0; // Reiniciar timer
+
             // Avanzar al siguiente color (con wrap-around)
             chip16->colorIndex = (chip16->colorIndex + 1) % COLOR_PALETTE_SIZE;
-            
+
             // Debug opcional
-            if (chip16->config.debugLevel >= DEBUG_VERBOSE) {
-                printf("Ciclo de color: cambiando a índice %d (Color: 0x%08X)\n", 
+            if (chip16->config.debugLevel >= DEBUG_VERBOSE)
+            {
+                printf("Ciclo de color: cambiando a índice %d (Color: 0x%08X)\n",
                        chip16->colorIndex, COLOR_PALETTE[chip16->colorIndex]);
             }
         }
@@ -246,16 +261,36 @@ void chip16Cycle(Chip16 *chip16)
         break;
 
     case 0x3000: // 3XKK: Saltar siguiente instrucción si VX == KK
-        if ((chip16->V[x] & 0xFF) == kk)
+        if (chip16->mode == MODE_8BIT)
         {
-            chip16->PC += 2;
+            if ((chip16->V[x] & 0xFF) == kk)
+            {
+                chip16->PC += 2;
+            }
+        }
+        else
+        {
+            if (chip16->V[x] == kk)
+            {
+                chip16->PC += 2;
+            }
         }
         break;
 
     case 0x4000: // 4XKK: Saltar siguiente instrucción si VX != KK
-        if (chip16->V[x] != kk)
+        if (chip16->mode == MODE_8BIT)
         {
-            chip16->PC += 2;
+            if ((chip16->V[x] & 0xFF) != kk)
+            {
+                chip16->PC += 2;
+            }
+        }
+        else
+        {
+            if (chip16->V[x] != kk)
+            {
+                chip16->PC += 2;
+            }
         }
         break;
 
@@ -314,8 +349,15 @@ void chip16Cycle(Chip16 *chip16)
         break;
 
     case 0x7000: // 7XKK: Establecer VX = VX + KK
-        chip16->V[x] += kk;
-        break;
+        if (chip16->mode == MODE_8BIT)
+    {
+        chip16->V[x] = (chip16->V[x] + kk) & 0xFF;
+    }
+    else
+    {
+        chip16->V[x] = (chip16->V[x] + kk) & 0xFFFF;
+    }
+    break;
 
     case 0x8000:
         switch (n)
@@ -358,7 +400,7 @@ void chip16Cycle(Chip16 *chip16)
 
         case 0x7: // 8XY7: Establecer VX = VY - VX, VF = not borrow
             chip16->V[0xF] = (chip16->V[y] > chip16->V[x]) ? 1 : 0;
-            chip16->V[x] = chip16->V[y] - chip16->V[x];
+            chip16->V[x] = (chip16->V[y] - chip16->V[x]) & 0xFFFF ;
             break;
 
         case 0xE: // 8XYE: Desplazar VX a la izquierda, VF = bit más significativo
@@ -385,13 +427,13 @@ void chip16Cycle(Chip16 *chip16)
             value = chip16->V[x];
             shift = chip16->V[y] & 0x0F;
 
-            chip16->V[x] = (value >> shift) | (value << (16 - shift));
+            chip16->V[x] = (shift == 0) ? value : ((value >> shift) | (value << (16 - shift)));
             break;
         case 0x2: // 9XY2: Rotación izquierda
             value = chip16->V[x];
             shift = chip16->V[y] & 0x0F;
 
-            chip16->V[x] = (value << shift) | (value >> (16 - shift));
+            chip16->V[x] = (shift == 0) ? value : ((value << shift) | (value >> (16 - shift)));
             break;
         case 0x3: // 9XY3: Contar bits
             value = chip16->V[x];
@@ -399,7 +441,7 @@ void chip16Cycle(Chip16 *chip16)
 
             for (int i = 0; i < 16; i++)
             {
-                if (value & (1 << i))
+                if (value & ((uint16_t)1 << i))
                 {
                     count++;
                 }
@@ -417,63 +459,66 @@ void chip16Cycle(Chip16 *chip16)
         chip16->I = nnn;
         break;
 
-    case 0xB000: 
-    switch (n)
-    {
-    case 0x0: // BNNN: Saltar a dirección NNN + V0
-        chip16->PC = nnn + (chip16->V[0] & 0xFFFF);
-        break;
+    case 0xB000:
+        switch (kk)
+        {
+        case 0x01: // B001: Copiar bloque de memoria
+            count = chip16->V[x];
+            src = chip16->I;
+            dst = chip16->I + count;
 
-    case 0x1: // B001: Copiar bloque de memoria
-        count = chip16->V[x];
-        src = chip16->I;
-        dst = chip16->I + count;
-
-        if (dst<MEMORY_SIZE){
-            if(src<dst && src + count > dst){
-                for (int i=count-1; i>=0; i--){
-                    chip16->memory[dst+i] = chip16->memory[src+i];
+            if (dst < MEMORY_SIZE)
+            {
+                if (src < dst && src + count > dst)
+                {
+                    for (int i = count - 1; i >= 0; i--)
+                    {
+                        chip16->memory[dst + i] = chip16->memory[src + i];
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        chip16->memory[dst + i] = chip16->memory[src + i];
+                    }
                 }
             }
-            else{
-                for (int i=0; i<count; i++){
-                    chip16->memory[dst+i] = chip16->memory[src+i];
+            break;
+
+        case 0x02: // B002: Buscar valor en memoria
+            value = chip16->V[x];
+            found = false;
+
+            for (int i = 0; i < 256 && (chip16->I + i + 1) < MEMORY_SIZE; i += 2)
+            {
+                memValue = (chip16->memory[chip16->I + i] << 8) | chip16->memory[chip16->I + i + 1];
+                if (memValue == value)
+                {
+                    chip16->V[0xF] = i / 2;
+                    found = true;
+                    break;
                 }
             }
-        }
-        break;
-    
-    case 0x2: // B002: BUscar valor en memoria
-        value = chip16->V[x];
-        found = false;
-
-        for (int i=0; i<256 && (chip16->I + i+1)< MEMORY_SIZE; i+=2){
-            memValue = (chip16->memory[chip16->I + i] << 8) | chip16->memory[chip16->I + i + 1];
-            if(memValue == value){
-                chip16->V[0xF] = i/2;
-                found = true;
-                break;
+            if (!found)
+            {
+                chip16->V[0xF] = 0xFFFF;
             }
-            
-        }
-        if (!found) {
-            chip16->V[0xF] = 0xFFFF;
+            break;
+
+        default: // BNNN: Saltar a dirección NNN + V0
+            chip16->PC = nnn + (chip16->V[0] & 0xFFFF);
+            break;
         }
         break;
-    default:
-        break;
-    }
-    break;
 
     case 0xC000:
         switch (n)
         {
-        case 0x0: // CXKK: Establecer VX = random byte AND KK
+        case 0x0:                               // CXKK: Establecer VX = random byte AND KK
             chip16->V[x] = (rand() % 256) & kk; // No se cambia a 65536 para mantener compatibilidad con programas existentes
             break;
 
-        
-        
         default:
             break;
         }
@@ -519,22 +564,23 @@ void chip16Cycle(Chip16 *chip16)
         switch (kk)
         {
         case 0x01: // E001: Llamada con parámetros
-            if(chip16->SP + 4 <= STACK_SIZE)
+            if (chip16->SP + 4 <= STACK_SIZE)
             {
-            chip16->stack[chip16->SP] = chip16->PC;
-            chip16->stack[chip16->SP + 1] = chip16->V[0xD];
-            chip16->stack[chip16->SP + 2] = chip16->V[0xE];
-            chip16->stack[chip16->SP + 3] = chip16->V[0xF];
-            chip16->SP += 4;
+                chip16->stack[chip16->SP] = chip16->PC;
+                chip16->stack[chip16->SP + 1] = chip16->V[0xD];
+                chip16->stack[chip16->SP + 2] = chip16->V[0xE];
+                chip16->stack[chip16->SP + 3] = chip16->V[0xF];
+                chip16->SP += 4;
 
-            nParams = y;
+                nParams = y;
 
-            chip16->V[0xD] = (chip16->V[1] >> 8) & 0xFF;
-            chip16->V[0xE] = (chip16->V[1] & 0xFF);
-            chip16->V[0xF] = nParams;
-            chip16->PC = chip16->V[0];
-            }     
-            else{
+                chip16->V[0xD] = (chip16->V[1] >> 8) & 0xFF;
+                chip16->V[0xE] = (chip16->V[1] & 0xFF);
+                chip16->V[0xF] = nParams;
+                chip16->PC = chip16->V[0];
+            }
+            else
+            {
                 if (chip16->config.debugLevel >= DEBUG_OPCODES)
                 {
                     printf("Error: Stack overflow en llamada con parámetros\n");
@@ -567,10 +613,10 @@ void chip16Cycle(Chip16 *chip16)
             break;
 
         case 0x04: // E004: Aleatorio en rango
-            range = x + 1;
-            if (chip16->V[range] > 0)
+            if (x < REGISTER_COUNT - 1)
             {
-                chip16->V[x] = rand() % chip16->V[range];
+                range = x + 1;
+                chip16->V[x] = (chip16->V[range] > 0) ? rand() % chip16->V[range] : 0;
             }
             else
             {
@@ -605,15 +651,15 @@ void chip16Cycle(Chip16 *chip16)
             for (int row = 0; row < 16; row++)
             {
                 spriteData = (chip16->memory[chip16->I + row * 2] << 8) |
-                                      chip16->memory[chip16->I + row * 2 + 1];
+                             chip16->memory[chip16->I + row * 2 + 1];
 
                 for (int col = 0; col < 16; col++)
                 {
                     if ((spriteData & (0x8000 >> col)) != 0)
                     {
-                        int pixelX = (xPos + col) % DISPLAY_WIDTH;
-                        int pixelY = (yPos + row) % DISPLAY_HEIGHT;
-                        int pixelPos = pixelX + (pixelY * DISPLAY_WIDTH);
+                        pixelX = (xPos + col) % DISPLAY_WIDTH;
+                        pixelY = (yPos + row) % DISPLAY_HEIGHT;
+                        pixelPos = pixelX + (pixelY * DISPLAY_WIDTH);
 
                         if (chip16->gfx[pixelPos] == 1)
                         {
@@ -627,9 +673,9 @@ void chip16Cycle(Chip16 *chip16)
 
             chip16->drawFlag = true;
             break;
-        
+
         case 0x02: // Fx02: Dibujar línea horizontal
-        xPos = chip16->V[2] % DISPLAY_WIDTH;
+            xPos = chip16->V[2] % DISPLAY_WIDTH;
             yPos = chip16->V[3] % DISPLAY_HEIGHT;
             length = chip16->V[4];
             pattern = chip16->V[5];
@@ -652,7 +698,7 @@ void chip16Cycle(Chip16 *chip16)
                 activePattern = pattern & mask;
                 for (int i = 0; i < length; i++)
                 {
-                    if ((activePattern & (0x8000 >> i)) != 0)
+                    if ((activePattern & (0x8000 >> i % 16)) != 0)
                     {
                         if (chip16->gfx[basePos + i] == 1)
                         {
@@ -695,12 +741,9 @@ void chip16Cycle(Chip16 *chip16)
             {
                 if ((pattern & (0x8000 >> (i % 16))) != 0)
                 {
-                    pixelPos = xPos + ((yPos + i) % DISPLAY_HEIGHT) * DISPLAY_WIDTH;
+                    pixelPos = ((xPos + i) % DISPLAY_WIDTH) + (yPos * DISPLAY_WIDTH);
 
-                    if (chip16->gfx[pixelPos] == 1)
-                    {
-                        chip16->V[0xF] = 1;
-                    }
+                    if (chip16->gfx[pixelPos] == 1) chip16->V[0xF] = 1;
                     chip16->gfx[pixelPos] ^= 1;
                 }
             }
@@ -745,29 +788,38 @@ void chip16Cycle(Chip16 *chip16)
             chip16->I += chip16->V[x];
             break;
 
-        case 0x29:                        // FX29: Establecer I = dirección del carácter en VX
+        case 0x29: // FX29: Establecer I = dirección del carácter en VX
             // chip16->I = chip16->V[x] * 5; // Cada carácter ocupa 5 bytes
 
-            if (chip16->mode == MODE_8BIT) {
+            if (chip16->mode == MODE_8BIT)
+            {
                 // Modo CHIP-8: Sprites de 5 bytes, solo dígitos 0-F
-                uint8_t digit = chip16->V[x] & 0x0F;  // Limitar a 0-F
-                chip16->I = digit * 5;  // Cada sprite ocupa 5 bytes
-            } else {
+                uint8_t digit = chip16->V[x] & 0x0F; // Limitar a 0-F
+                chip16->I = digit * 5;               // Cada sprite ocupa 5 bytes
+            }
+            else
+            {
                 // Modo CHIP-16: Podría usar sprites extendidos
-                uint8_t character = chip16->V[x] & 0xFF;  // Soportar más caracteres
-                
-                if (character <= 0x0F) {
+                uint8_t character = chip16->V[x] & 0xFF; // Soportar más caracteres
+
+                if (character <= 0x0F)
+                {
                     // Caracteres estándar 0-F (compatibilidad)
                     chip16->I = character * 5;
-                } else {
+                }
+                else
+                {
                     // Caracteres extendidos (si los implementamos)
                     // Por ejemplo, sprites de mayor resolución o caracteres ASCII
-                    if (character < 128 && character >= 16) {
+                    if (character < 128 && character >= 16)
+                    {
                         // Offset para caracteres extendidos
                         chip16->I = FONTSET_SIZE + ((character - 16) * 8);
-                    } else {
+                    }
+                    else
+                    {
                         // Caracter no válido, usar espacio en blanco o '?'
-                        chip16->I = 0x0F * 5;  // Apuntar al sprite 'F' como fallback
+                        chip16->I = 0x0F * 5; // Apuntar al sprite 'F' como fallback
                     }
                 }
             }
@@ -775,16 +827,19 @@ void chip16Cycle(Chip16 *chip16)
 
         case 0x33: // FX33: Almacenar representación BCD de VX en I, I+1, I+2
         {
-            if (chip16->mode == MODE_8BIT) {
-                // Modo CHIP-8: 3 dígitos BCD 
-                uint8_t value = chip16->V[x] & 0xFF;  
-                chip16->memory[chip16->I] = value / 100;          // Centenas
+            if (chip16->mode == MODE_8BIT)
+            {
+                // Modo CHIP-8: 3 dígitos BCD
+                uint8_t value = chip16->V[x] & 0xFF;
+                chip16->memory[chip16->I] = value / 100;           // Centenas
                 chip16->memory[chip16->I + 1] = (value / 10) % 10; // Decenas
                 chip16->memory[chip16->I + 2] = value % 10;        // Unidades
-            } else {
+            }
+            else
+            {
                 // Modo CHIP-16: 5 dígitos BCD
                 uint16_t value = chip16->V[x];
-                chip16->memory[chip16->I] = value / 10000;         // Decenas de millar
+                chip16->memory[chip16->I] = value / 10000;           // Decenas de millar
                 chip16->memory[chip16->I + 1] = (value / 1000) % 10; // Millares
                 chip16->memory[chip16->I + 2] = (value / 100) % 10;  // Centenas
                 chip16->memory[chip16->I + 3] = (value / 10) % 10;   // Decenas
@@ -794,39 +849,46 @@ void chip16Cycle(Chip16 *chip16)
         break;
 
         case 0x55: // FX55: Almacenar V0 a VX en memoria desde I
-            
-        if (chip16->mode == MODE_8BIT) {
-            // Modo compatibilidad CHIP-8
-            for (int i = 0; i <= x; i++) {
-                chip16->memory[chip16->I + i] = chip16->V[i] & 0xFF;
-            }
-            
-        } else {
-            for (int i = 0; i <= x; i++)
+
+            if (chip16->mode == MODE_8BIT)
             {
-                // Almacenar registro de 16 bits en dos bytes consecutivos
-                chip16->memory[chip16->I + (i * 2)] = (chip16->V[i] >> 8) & 0xFF; // Byte alto
-                chip16->memory[chip16->I + (i * 2) + 1] = chip16->V[i] & 0xFF;    // Byte bajo
+                // Modo compatibilidad CHIP-8
+                for (int i = 0; i <= x; i++)
+                {
+                    chip16->memory[chip16->I + i] = chip16->V[i] & 0xFF;
+                }
             }
-            chip16->I += (x + 1) * 2;
+            else
+            {
+                for (int i = 0; i <= x; i++)
+                {
+                    // Almacenar registro de 16 bits en dos bytes consecutivos
+                    chip16->memory[chip16->I + (i * 2)] = (chip16->V[i] >> 8) & 0xFF; // Byte alto
+                    chip16->memory[chip16->I + (i * 2) + 1] = chip16->V[i] & 0xFF;    // Byte bajo
+                }
+                chip16->I += (x + 1) * 2;
             }
             break;
 
         case 0x65: // FX65: Cargar V0 a VX desde memoria desde I
-        if (chip16->mode == MODE_8BIT) {
-            // Modo compatibilidad CHIP-8
-            for (int i = 0; i <= x; i++) {
-                chip16->V[i] = chip16->memory[chip16->I + i];
+            if (chip16->mode == MODE_8BIT)
+            {
+                // Modo compatibilidad CHIP-8
+                for (int i = 0; i <= x; i++)
+                {
+                    chip16->V[i] = chip16->memory[chip16->I + i];
+                }
             }
-            
-        } else {
-            // Modo CHIP-16
-            for (int i = 0; i <= x; i++) {
-                chip16->V[i] = (chip16->memory[chip16->I + (i * 2)] << 8) |
-                               chip16->memory[chip16->I + (i * 2) + 1];
+            else
+            {
+                // Modo CHIP-16
+                for (int i = 0; i <= x; i++)
+                {
+                    chip16->V[i] = (chip16->memory[chip16->I + (i * 2)] << 8) |
+                                   chip16->memory[chip16->I + (i * 2) + 1];
+                }
+                chip16->I += (x + 1) * 2;
             }
-            chip16->I += (x + 1) * 2;
-        }
             break;
         }
         break;
@@ -837,6 +899,4 @@ void chip16Cycle(Chip16 *chip16)
             printf("Opcode desconocido: 0x%04X\n", chip16->opcode);
         }
     }
-
-    
 }

@@ -62,7 +62,7 @@ static const uint32_t COLOR_PALETTE[COLOR_PALETTE_SIZE] = {
     0xFFFFFFFF   // Blanco
 };
 
-#define COLOR_CYCLE_FRAMES 1 // Índice del color por defecto en la paleta (A 60 Hz cambia 1 veces por segundo)
+#define COLOR_CYCLE_FRAMES 60 // Cambiar de color cada 60 frames (aprox. cada segundo a 60Hz)
 
 // Estado del dispositivo de audio
 typedef struct {

@@ -151,24 +151,16 @@ void displayToggleDualWindow(Display* display, Chip16* chip16) {
 
 // Renderizar el estado actual del emulador
 void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
+    chip16ProcessEffects(chip16);
     if (!chip16->drawFlag) {
         return;  // No hay necesidad de actualizar la pantalla
     }
 
-    chip16ProcessEffects(chip16);
+    
     
     // Determinar el color del pixel
     uint32_t pixelColor;
-    // if (colorArg != NULL) {
-    //     // Convertir argumento de color de string a uint32
-    //     pixelColor = strtoul(colorArg, NULL, 16);
-    // } else {
-    //     // Usar color predeterminado
-    //     pixelColor = chip16->config.pixelColor;
-    // }
-
-     // === NUEVO: Lógica de selección de color según el efecto ===
-     if (chip16->currentEffect == EFFECT_COLOR_CYCLE) {
+    if (chip16->currentEffect == EFFECT_COLOR_CYCLE) {
         // Si el efecto está activo, usar el color de la paleta
         pixelColor = COLOR_PALETTE[chip16->colorIndex];
     } else if (colorArg != NULL) {
