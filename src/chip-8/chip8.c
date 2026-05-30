@@ -50,19 +50,10 @@ void chip8Init(Chip8 *chip8)
     memcpy(chip8->memory, chip8_fontset, FONTSET_SIZE);
     // Inicializar semilla para números aleatorios
     srand(time(NULL));
-    // Inicializar audio
-    chip8->config.beep.phase  = 0.0;
+    if (chip8->config.beep.dev != 0) {
     chip8->config.beep.active = false;
-    SDL_AudioSpec want = {
-        .freq     = AUDIO_SAMPLE_RATE,
-        .format   = AUDIO_S16SYS,
-        .channels = 1,
-        .samples  = AUDIO_SAMPLES,
-        .callback = audioCallback,
-        .userdata = &chip8->config.beep
-    };
-    chip8->config.beep.dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
-    SDL_PauseAudioDevice(chip8->config.beep.dev, 0);
+    chip8->config.beep.phase  = 0.0;
+    }
 }
 
 // Cargar ROM desde archivo
@@ -104,17 +95,24 @@ void chip8UpdateTimers(Chip8 *chip8)
         chip8->delayTimer--;
     }
     if (chip8->soundTimer > 0)
-    {   
-        if (chip8->config.enableSound)
+    {
+        if (chip8->config.enableSound && chip8->config.beep.dev != 0)
         {
+            SDL_LockAudioDevice(chip8->config.beep.dev);
             chip8->config.beep.active = true;
             printf("BEEP!\n");
+            SDL_UnlockAudioDevice(chip8->config.beep.dev);
         }
         chip8->soundTimer--;
     }
     else
     {
-        chip8->config.beep.active = false;
+        if (chip8->config.beep.dev != 0)
+        {
+            SDL_LockAudioDevice(chip8->config.beep.dev);
+            chip8->config.beep.active = false;
+            SDL_UnlockAudioDevice(chip8->config.beep.dev);
+        }
     }
 }
 
@@ -124,6 +122,41 @@ void chip8SetKey(Chip8 *chip8, uint8_t key, uint8_t value)
     if (key < KEY_COUNT)
     {
         chip8->key[key] = value;
+    }
+}
+
+// Inicializar recursos de audio
+bool chip8AudioInit(Chip8 *chip8)
+{
+    chip8->config.beep.phase  = 0.0;
+    chip8->config.beep.active = false;
+    chip8->config.beep.dev    = 0;
+
+    SDL_AudioSpec want = {
+        .freq     = AUDIO_SAMPLE_RATE,
+        .format   = AUDIO_S16SYS,
+        .channels = 1,
+        .samples  = AUDIO_SAMPLES,
+        .callback = audioCallback,
+        .userdata = &chip8->config.beep
+    };
+
+    chip8->config.beep.dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+    if (chip8->config.beep.dev == 0) {
+        fprintf(stderr, "Error al abrir dispositivo de audio: %s\n", SDL_GetError());
+        return false;
+    }
+
+    SDL_PauseAudioDevice(chip8->config.beep.dev, 0);
+    return true;
+}
+
+// Limpiar recursos de audio
+void chip8AudioCleanup(Chip8 *chip8)
+{
+    if (chip8->config.beep.dev != 0) {
+        SDL_CloseAudioDevice(chip8->config.beep.dev);
+        chip8->config.beep.dev = 0;
     }
 }
 

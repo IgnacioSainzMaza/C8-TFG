@@ -48,5 +48,7 @@ bool chip8LoadROM(Chip8* chip8, const char* filename);
 void chip8Cycle(Chip8* chip8);
 void chip8UpdateTimers(Chip8* chip8);
 void chip8SetKey(Chip8* chip8, uint8_t key, uint8_t value);
+bool chip8AudioInit(Chip8 *chip8);
+void chip8AudioCleanup(Chip8 *chip8);
 
 #endif // CHIP8_H

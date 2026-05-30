@@ -28,6 +28,12 @@ int main(int argc, char** argv) {
     
     // Inicializar emulador
     chip8Init(&chip8);
+    if (chip8.config.enableSound) {
+    if (!chip8AudioInit(&chip8)) {
+        fprintf(stderr, "Advertencia: audio no disponible\n");
+        chip8.config.enableSound = false;
+    }
+}
     
     // Inicializar pantalla
     if (!displayInit(&display, title)) {
@@ -85,7 +91,7 @@ int main(int argc, char** argv) {
     }
     
     // Liberar recursos
-    SDL_CloseAudioDevice(chip8.config.beep.dev);
+    chip8AudioCleanup(&chip8);
     displayCleanup(&display);
     SDL_Quit();
     

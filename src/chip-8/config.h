@@ -45,7 +45,7 @@ typedef enum {
 typedef struct {
     SDL_AudioDeviceID dev;
     double            phase;
-    volatile bool              active;
+    bool              active;
 } BeepState;
 
 // Configuración global
