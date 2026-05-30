@@ -21,6 +21,7 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
                 beep->phase -= 2.0 * M_PI; // Mantener la fase dentro de un ciclo
         } else {
             buffer[i] = 0;
+            beep->phase = 0.0; // Reiniciar fase cuando no se está haciendo beep
         }
     }
 }
@@ -51,8 +52,10 @@ void chip8Init(Chip8 *chip8)
     // Inicializar semilla para números aleatorios
     srand(time(NULL));
     if (chip8->config.beep.dev != 0) {
+    SDL_LockAudioDevice(chip8->config.beep.dev);
     chip8->config.beep.active = false;
     chip8->config.beep.phase  = 0.0;
+    SDL_UnlockAudioDevice(chip8->config.beep.dev);
     }
 }
 

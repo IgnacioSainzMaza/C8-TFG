@@ -43,6 +43,7 @@ int main(int argc, char** argv) {
     
     // Cargar ROM
     if (!chip8LoadROM(&chip8, argv[1])) {
+        chip8AudioCleanup(&chip8);
         displayCleanup(&display);
         SDL_Quit();
         return EXIT_FAILURE;
