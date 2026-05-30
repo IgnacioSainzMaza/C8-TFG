@@ -55,6 +55,8 @@ bool chip16LoadROM(Chip16* chip16, const char* filename);
 void chip16Cycle(Chip16* chip16);
 void chip16UpdateTimers(Chip16* chip16);
 void chip16SetKey(Chip16* chip16, uint8_t key, uint8_t value);
+bool chip16AudioInit(Chip16 *chip16);
+void chip16AudioCleanup(Chip16 *chip16);
 void chip16SetEffect(Chip16* chip16, GraphicsEffects effect);
 void chip16ProcessEffects(Chip16* chip16);
 

@@ -78,8 +78,7 @@ int main(int argc, char** argv) {
             }
             lastCycleTime = currentTime;
         }
-        // // Renderizar pantalla si es necesario
-        // displayRender(&display, &chip8, argc > 2 ? argv[2] : NULL);
+        
         // Dentro del bucle principal, antes de displayRender
         if (currentTime - lastRenderTime >= 16)
         {

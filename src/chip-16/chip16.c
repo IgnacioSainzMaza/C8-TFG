@@ -6,7 +6,7 @@
 #include <math.h>
 #include "chip16.h"
 
-// Función de callback de audio para generar el sonido de beep
+// Función de callback de audio para generar el sonido de º
 static void audioCallback(void *userdata, Uint8 *stream, int len)
 {
     BeepState *beep = (BeepState *)userdata;
@@ -25,6 +25,7 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
         else
         {
             buffer[i] = 0;
+            beep->phase = 0.0; // Reiniciar fase cuando no se está haciendo º
         }
     }
 }
@@ -32,13 +33,6 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
 // Inicialización del emulador CHIP-16
 void chip16Init(Chip16 *chip16)
 {
-    // Cerrar dispositivo de audio previo si existe
-    if (chip16->config.beepState.dev != 0)
-    {
-        SDL_CloseAudioDevice(chip16->config.beepState.dev);
-        chip16->config.beepState.dev = 0;
-    }
-
     // Inicializar configuración predeterminada
     chip16->config.debugLevel = DEBUG_NONE;
     chip16->config.clockSpeed = DEFAULT_SPEED;
@@ -72,17 +66,13 @@ void chip16Init(Chip16 *chip16)
     srand(time(NULL));
 
     // Inicializar audio
-    chip16->config.beepState.phase = 0.0;
-    chip16->config.beepState.active = false;
-    SDL_AudioSpec want = {
-        .freq = AUDIO_SAMPLE_RATE,
-        .format = AUDIO_S16SYS,
-        .channels = 1,
-        .samples = AUDIO_SAMPLES,
-        .callback = audioCallback,
-        .userdata = &chip16->config.beepState};
-    chip16->config.beepState.dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
-    SDL_PauseAudioDevice(chip16->config.beepState.dev, 0); // Iniciar audio
+    if (chip16->config.beepState.dev != 0)
+    {
+        SDL_LockAudioDevice(chip16->config.beepState.dev);
+        chip16->config.beepState.active = false;
+        chip16->config.beepState.phase = 0.0;
+        SDL_UnlockAudioDevice(chip16->config.beepState.dev);
+    }
 }
 
 // Cargar ROM desde archivo
@@ -129,18 +119,19 @@ void chip16UpdateTimers(Chip16 *chip16)
         chip16->delayTimer--;
     }
 
-    if (chip16->soundTimer > 0)
-    {
-        if (chip16->config.enableSound)
-        {
+    if (chip16->soundTimer > 0) {
+        if (chip16->config.enableSound && chip16->config.beepState.dev != 0) {
+            SDL_LockAudioDevice(chip16->config.beepState.dev);
             chip16->config.beepState.active = true;
-            printf("BEEP!\n");
+            SDL_UnlockAudioDevice(chip16->config.beepState.dev);
         }
         chip16->soundTimer--;
-    }
-    else
-    {
-        chip16->config.beepState.active = false;
+    } else {
+        if (chip16->config.beepState.dev != 0) {
+            SDL_LockAudioDevice(chip16->config.beepState.dev);
+            chip16->config.beepState.active = false;
+            SDL_UnlockAudioDevice(chip16->config.beepState.dev);
+        }
     }
 }
 
@@ -150,6 +141,39 @@ void chip16SetKey(Chip16 *chip16, uint8_t key, uint8_t value)
     if (key < KEY_COUNT)
     {
         chip16->key[key] = value;
+    }
+}
+
+bool chip16AudioInit(Chip16 *chip16)
+{
+    chip16->config.beepState.phase  = 0.0;
+    chip16->config.beepState.active = false;
+    chip16->config.beepState.dev    = 0;
+
+    SDL_AudioSpec want = {
+        .freq     = AUDIO_SAMPLE_RATE,
+        .format   = AUDIO_S16SYS,
+        .channels = 1,
+        .samples  = AUDIO_SAMPLES,
+        .callback = audioCallback,
+        .userdata = &chip16->config.beepState
+    };
+
+    chip16->config.beepState.dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+    if (chip16->config.beepState.dev == 0) {
+        fprintf(stderr, "Error al abrir dispositivo de audio: %s\n", SDL_GetError());
+        return false;
+    }
+
+    SDL_PauseAudioDevice(chip16->config.beepState.dev, 0);
+    return true;
+}
+
+void chip16AudioCleanup(Chip16 *chip16)
+{
+    if (chip16->config.beepState.dev != 0) {
+        SDL_CloseAudioDevice(chip16->config.beepState.dev);
+        chip16->config.beepState.dev = 0;
     }
 }
 

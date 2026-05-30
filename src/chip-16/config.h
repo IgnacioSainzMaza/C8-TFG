@@ -68,7 +68,7 @@ static const uint32_t COLOR_PALETTE[COLOR_PALETTE_SIZE] = {
 typedef struct {
     SDL_AudioDeviceID dev;
     double            phase;
-    volatile bool     active;
+    bool     active;
 } BeepState;
 
 

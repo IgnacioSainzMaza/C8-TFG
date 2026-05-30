@@ -24,6 +24,13 @@ int main(int argc, char** argv) {
     memset(&chip16, 0, sizeof(Chip16));
     chip16Init(&chip16);
 
+    if (chip16.config.enableSound) {
+    if (!chip16AudioInit(&chip16)) {
+        fprintf(stderr, "Advertencia: audio no disponible\n");
+        chip16.config.enableSound = false;
+    }
+}
+
     // Leer argumento de modo (argv[3], opcional)
     if (argc >= 4) {
         if (strcmp(argv[3], "8") == 0) {
@@ -49,6 +56,7 @@ int main(int argc, char** argv) {
     }
     
     if (!chip16LoadROM(&chip16, argv[1])) {
+        chip16AudioCleanup(&chip16);
         displayCleanup(&display);
         SDL_Quit();
         return EXIT_FAILURE;
@@ -86,7 +94,7 @@ int main(int argc, char** argv) {
         SDL_Delay(1);
     }
     
-    SDL_CloseAudioDevice(chip16.config.beepState.dev);
+    chip16AudioCleanup(&chip16);
     displayCleanup(&display);
     SDL_Quit();
     
