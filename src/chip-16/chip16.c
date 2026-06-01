@@ -6,7 +6,7 @@
 #include <math.h>
 #include "chip16.h"
 
-// Función de callback de audio para generar el sonido de º
+// Función de callback de audio para generar el sonido de beep
 static void audioCallback(void *userdata, Uint8 *stream, int len)
 {
     BeepState *beep = (BeepState *)userdata;
@@ -25,7 +25,7 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
         else
         {
             buffer[i] = 0;
-            beep->phase = 0.0; // Reiniciar fase cuando no se está haciendo º
+            beep->phase = 0.0; // Reiniciar fase cuando no se está haciendo beep
         }
     }
 }
@@ -356,7 +356,7 @@ void chip16Cycle(Chip16 *chip16)
             chip16->V[nextX] += chip16->V[nextY];
         }
 
-        else if (n == 4) // 5XY4 : PRoducto escalar
+        else if (n == 4) // 5XY4 : Producto escalar
         {
             uint16_t nextX = (x + 1) % REGISTER_COUNT;
             uint16_t nextY = (y + 1) % REGISTER_COUNT;
@@ -486,34 +486,22 @@ void chip16Cycle(Chip16 *chip16)
     case 0xB000:
         switch (kk)
         {
-        case 0x01: // B001: Copiar bloque de memoria
-            count = chip16->V[x];
-            src = chip16->I;
-            dst = chip16->I + count;
+        case 0x01: // B001: Copia de bloque en memoria
+            uint16_t count = chip16->V[x];
+            uint16_t src = chip16->I;
+            uint16_t dst = chip16->I + count;
 
             if (dst < MEMORY_SIZE)
             {
-                if (src < dst && src + count > dst)
+                for (int i = 0; i < count; i++)
                 {
-                    for (int i = count - 1; i >= 0; i--)
-                    {
-                        chip16->memory[dst + i] = chip16->memory[src + i];
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < count; i++)
-                    {
-                        chip16->memory[dst + i] = chip16->memory[src + i];
-                    }
+                    chip16->memory[dst + i] = chip16->memory[src + i];
                 }
             }
             break;
-
         case 0x02: // B002: Buscar valor en memoria
             value = chip16->V[x];
             found = false;
-
             for (int i = 0; i < 256 && (chip16->I + i + 1) < MEMORY_SIZE; i += 2)
             {
                 memValue = (chip16->memory[chip16->I + i] << 8) | chip16->memory[chip16->I + i + 1];
@@ -524,10 +512,7 @@ void chip16Cycle(Chip16 *chip16)
                     break;
                 }
             }
-            if (!found)
-            {
-                chip16->V[0xF] = 0xFFFF;
-            }
+            if (!found) chip16->V[0xF] = 0xFFFF;
             break;
 
         default: // BNNN: Saltar a dirección NNN + V0
