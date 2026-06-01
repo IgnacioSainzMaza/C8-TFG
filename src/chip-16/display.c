@@ -172,38 +172,31 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     memset(pixels, 0, sizeof(pixels));  // Limpiar buffer con negro
 
     
-    float currentZoom = chip16->zoom.currentZoom;
-    int viewWidth = (int)ceil(DISPLAY_WIDTH / currentZoom);
-    int viewHeight = (int)ceil(DISPLAY_HEIGHT / currentZoom);
+    float zoom = chip16->zoom.currentZoom;
+    int viewW = (int)(DISPLAY_WIDTH  / zoom);
+    int viewH = (int)(DISPLAY_HEIGHT / zoom);
+    int maxPanX = DISPLAY_WIDTH  - viewW;
+    int maxPanY = DISPLAY_HEIGHT - viewH;
     int startX = chip16->zoom.panX;
     int startY = chip16->zoom.panY;
-    // Limitar pan para no salirse del framebuffer
-    if (startX + viewWidth > DISPLAY_WIDTH) {
-    startX = DISPLAY_WIDTH - viewWidth;
-    }
-    if (startY + viewHeight > DISPLAY_HEIGHT) {
-        startY = DISPLAY_HEIGHT - viewHeight;
-    }
-    if (startX < 0) startX = 0;
-    if (startY < 0) startY = 0;
+    if (startX < 0)       startX = 0;
+    if (startX > maxPanX) startX = maxPanX;
+    if (startY < 0)       startY = 0;
+    if (startY > maxPanY) startY = maxPanY;
 
-    // Renderizar región visible amplificada
     for (int dstY = 0; dstY < DISPLAY_HEIGHT; dstY++) {
+        int srcY = startY + (int)(dstY / zoom);
+        if (srcY < 0 || srcY >= DISPLAY_HEIGHT) continue;
+
         for (int dstX = 0; dstX < DISPLAY_WIDTH; dstX++) {
-            // Mapear píxel de pantalla a píxel fuente
-            int srcX = startX + (int)(dstX / currentZoom);
-            int srcY = startY + (int)(dstY / currentZoom);
-            
-            // Clipping
-            if (srcX >= 0 && srcX < DISPLAY_WIDTH && 
-                srcY >= 0 && srcY < DISPLAY_HEIGHT) {
-                
-                int srcIndex = srcX + (srcY * DISPLAY_WIDTH);
-                int dstIndex = dstX + (dstY * DISPLAY_WIDTH);
-                
-                if (chip16->gfx2Buffer[srcIndex] == 1) {
-                    pixels[dstIndex] = pixelColor;
-                }
+            int srcX = startX + (int)(dstX / zoom);
+            if (srcX < 0 || srcX >= DISPLAY_WIDTH) continue;
+
+            int srcIdx = srcX + srcY * DISPLAY_WIDTH;
+            int dstIdx = dstX + dstY * DISPLAY_WIDTH;
+
+            if (chip16->gfx2Buffer[srcIdx] == 1) {
+                pixels[dstIdx] = pixelColor;
             }
         }
     }
@@ -214,12 +207,10 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     // Renderizar con escala (SDL maneja el zoom automáticamente)
 
     SDL_Rect destRect = {
-        // .x = DISPLAY_WIDTH * (1.0f - currentZoom) / 2, // Centrar horizontalmente
-        // .y = DISPLAY_HEIGHT * (1.0f - currentZoom) / 2, // Centrar verticalmente
         .x = 0,
         .y = 0,
-        .w = (int)(DISPLAY_WIDTH  * currentZoom),
-        .h = (int)(DISPLAY_HEIGHT * currentZoom)
+        .w = DISPLAY_WIDTH,   // siempre 64 — SDL se encarga de escalar a ventana
+        .h = DISPLAY_HEIGHT,  // siempre 32
     };
 
     // Renderizar

@@ -62,6 +62,8 @@ void chip16Init(Chip16 *chip16)
     chip16->zoom.zoomInTimer = 0;
     chip16->zoom.zoomOutTimer = 0;
     chip16->zoom.isZoomingIn = false;
+    chip16->zoom.panX = 0;  
+    chip16->zoom.panY = 0; 
 
     // Cargar fuente en memoria
     memcpy(chip16->memory, chip16_fontset, FONTSET_SIZE);
@@ -139,31 +141,28 @@ void chip16UpdateTimers(Chip16 *chip16)
     }
 
     // Zoom in
-if (chip16->zoom.zoomInTimer > 0)
-{
-    chip16->zoom.isZoomingIn = true;
-    chip16->zoom.zoomInTimer--;
-    chip16->zoom.currentZoom += ZOOM_SPEED;
-    printf("DEBUG: zoomInTimer=%d, currentZoom=%.2f, ZOOM_MAX=%.2f\n",
-           chip16->zoom.zoomInTimer, chip16->zoom.currentZoom, ZOOM_MAX);
-    if (chip16->zoom.currentZoom >= ZOOM_MAX)
-    {
-        chip16->zoom.currentZoom = ZOOM_MAX;
-        chip16->zoom.zoomInTimer = 0;
-        printf("DEBUG: Zoom limitado a ZOOM_MAX\n");
+    if (chip16->zoom.zoomInTimer > 0) {
+        chip16->zoom.zoomInTimer--;
+        chip16->zoom.currentZoom += ZOOM_SPEED;
+
+        if (chip16->zoom.currentZoom >= ZOOM_MAX) {
+            chip16->zoom.currentZoom = ZOOM_MAX;
+            chip16->zoom.zoomInTimer = 0;
+            chip16->zoom.isZoomingIn = false; /* animación completada → estado neutro */
+        }
+        chip16->drawFlag = true;
     }
-    chip16->drawFlag = true;  // ← FUERA del if, siempre se ejecuta
-}
     // Zoom out
     if (chip16->zoom.zoomOutTimer > 0) {
-        chip16->zoom.isZoomingIn = false;
         chip16->zoom.zoomOutTimer--;
         chip16->zoom.currentZoom -= ZOOM_SPEED;
-        
-        if (chip16->zoom.currentZoom < ZOOM_MIN) {
+
+        if (chip16->zoom.currentZoom <= ZOOM_MIN) {
             chip16->zoom.currentZoom = ZOOM_MIN;
             chip16->zoom.zoomOutTimer = 0;
-            chip16->zoom.panX = 0; // Reset pan al mínimo
+            chip16->zoom.isZoomingIn = false; /* estado neutro */
+            /* Al llegar a zoom mínimo, el pan no tiene sentido — lo reseteamos */
+            chip16->zoom.panX = 0;
             chip16->zoom.panY = 0;
         }
         chip16->drawFlag = true;
