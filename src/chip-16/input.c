@@ -1,7 +1,7 @@
 #include "input.h"
 
 // Procesar eventos de entrada
-bool inputProcess(SDL_Event* event, Chip16* chip16, Display* display) {
+bool inputProcess(SDL_Event* event, Chip16* chip16, Display* display, const char* romPath) {
     bool quit = false;
     
     while (SDL_PollEvent(event)) {
@@ -16,8 +16,9 @@ bool inputProcess(SDL_Event* event, Chip16* chip16, Display* display) {
                 } else if (event->key.keysym.sym == SDLK_F1) {
                     // Reiniciar emulador
                     chip16Init(chip16);
+                    chip16LoadROM(chip16, romPath);  
                     chip16->drawFlag = true;
-                    return false;  // Continuar ejecución
+                    // return false;  // Continuar ejecución
                 } 
                 else if (event->key.keysym.sym == SDLK_F2) {
                     // Toggle del efecto de ciclo de color
@@ -30,31 +31,78 @@ bool inputProcess(SDL_Event* event, Chip16* chip16, Display* display) {
                     }
                 }
 
-                else if (event->key.keysym.sym == SDLK_F3) {
+                else if (event->key.keysym.sym == SDLK_F3)
+                {
                     // Toggle del modo ventana dual
                     displayToggleDualWindow(display, chip16);
                 }
 
-                else if (event->key.keysym.sym == SDLK_F4) {
-                    // Toggle de zoom progresivo
-                    if (chip16->zoom.zoomInTimer > 0 || chip16->zoom.zoomOutTimer > 0) {
-                        // Si hay zoom en proceso, cancela y vuelve a 1.0
+                else if (event->key.keysym.sym == SDLK_F4)
+                {
+                    if (chip16->zoom.isZoomingIn)
+                    {
+                        // Si estábamos haciendo zoom in, cambia a zoom out
                         chip16->zoom.zoomInTimer = 0;
-                        chip16->zoom.zoomOutTimer = 0;
-                        chip16->zoom.currentZoom = 1.0f;
-                        chip16->drawFlag = true; 
-                    } else {
-                        // Inicia zoom in
-                        chip16->zoom.zoomInTimer = 255;  // ~4.25 segundos @ 60Hz
-                        chip16->drawFlag = true; 
+                        chip16->zoom.zoomOutTimer = 255;
+                        chip16->zoom.isZoomingIn = false; // ← ACTUALIZA FLAG
+                        
+                        chip16->drawFlag = true;
+                        printf("Zoom out iniciado\n");
+                    }
+                    else if (chip16->zoom.zoomOutTimer > 0 || (chip16->zoom.currentZoom > ZOOM_MIN && !chip16->zoom.isZoomingIn && chip16->zoom.zoomInTimer == 0))
+                    {
+                        // Si estamos haciendo zoom out O acabamos de terminar zoom in
+                        chip16->zoom.zoomOutTimer = 255;
+                        chip16->zoom.isZoomingIn = false;
+                        chip16->drawFlag = true;
+                        printf("Zoom out iniciado\n");
+                    }
+                    else
+                    {
+                        // Si no hay zoom activo, inicia zoom in
+                        chip16->zoom.zoomInTimer = 255;
+                        chip16->zoom.isZoomingIn = true; // ← ACTUALIZA FLAG
+                        chip16->drawFlag = true;
+                        printf("Zoom in iniciado\n");
+                    }
+                }
+                else if (event->key.keysym.sym == SDLK_LEFT) {
+                    if (chip16->zoom.currentZoom > 1.0f) {
+                        chip16->zoom.panX--;
+                        chip16->drawFlag = true;
+                    }
+                }
+                else if (event->key.keysym.sym == SDLK_RIGHT) {
+                    if (chip16->zoom.currentZoom > 1.0f) {
+                        chip16->zoom.panX++;
+                        chip16->drawFlag = true;
+                    }
+                }
+                else if (event->key.keysym.sym == SDLK_UP)
+                {
+                    if (chip16->zoom.currentZoom > 1.0f)
+                    {
+                        chip16->zoom.panY--;
+                        chip16->drawFlag = true;
+                    }
+                }
+                else if (event->key.keysym.sym == SDLK_DOWN)
+                {
+                    if (chip16->zoom.currentZoom > 1.0f)
+                    {
+                        chip16->zoom.panY++;
+                        chip16->drawFlag = true;
                     }
                 }
 
-                else {
+                else
+                {
                     // Mapear otras teclas al teclado CHIP-8
                     inputMapKey(event, chip16, true);
                 }
                 break;
+
+            
                 
             case SDL_KEYUP:
                 // Mapear tecla liberada al teclado CHIP-8

@@ -33,7 +33,7 @@
 // Configuración de zoom
 #define ZOOM_SPEED 0.1f // Velocidad de zoom (ajustable)
 #define ZOOM_MIN 1.0f // Zoom mínimo (1x)
-#define ZOOM_MAX 5.0f // Zoom máximo (5x)
+#define ZOOM_MAX 1.5f // Zoom máximo (1.5x)
 
 
 // Niveles de depuración
@@ -80,6 +80,8 @@ typedef struct {
     float currentZoom;      // Zoom actual (1.0 - 4.0)
     uint8_t zoomInTimer;    // Contador para zoom in (0-255)
     uint8_t zoomOutTimer;   // Contador para zoom out (0-255)
+    bool isZoomingIn;     // Flag para indicar si se está haciendo zoom in o zoom out
+    int panX, panY;         // Posición del pan (0-63, 0-31)
 } ZoomState;
 
 // Configuración global

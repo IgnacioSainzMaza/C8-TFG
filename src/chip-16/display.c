@@ -171,12 +171,39 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     uint32_t pixels[DISPLAY_WIDTH * DISPLAY_HEIGHT];
     memset(pixels, 0, sizeof(pixels));  // Limpiar buffer con negro
 
-    // Convertir framebuffer a píxeles (sin zoom en el array)
-    for (int y = 0; y < DISPLAY_HEIGHT; y++) {
-        for (int x = 0; x < DISPLAY_WIDTH; x++) {
-            int index = x + (y * DISPLAY_WIDTH);
-            if (chip16->gfx2Buffer[index] == 1) {
-                pixels[index] = pixelColor;
+    
+    float currentZoom = chip16->zoom.currentZoom;
+    int viewWidth = (int)ceil(DISPLAY_WIDTH / currentZoom);
+    int viewHeight = (int)ceil(DISPLAY_HEIGHT / currentZoom);
+    int startX = chip16->zoom.panX;
+    int startY = chip16->zoom.panY;
+    // Limitar pan para no salirse del framebuffer
+    if (startX + viewWidth > DISPLAY_WIDTH) {
+    startX = DISPLAY_WIDTH - viewWidth;
+    }
+    if (startY + viewHeight > DISPLAY_HEIGHT) {
+        startY = DISPLAY_HEIGHT - viewHeight;
+    }
+    if (startX < 0) startX = 0;
+    if (startY < 0) startY = 0;
+
+    // Renderizar región visible amplificada
+    for (int dstY = 0; dstY < DISPLAY_HEIGHT; dstY++) {
+        for (int dstX = 0; dstX < DISPLAY_WIDTH; dstX++) {
+            // Mapear píxel de pantalla a píxel fuente
+            int srcX = startX + (int)(dstX / currentZoom);
+            int srcY = startY + (int)(dstY / currentZoom);
+            
+            // Clipping
+            if (srcX >= 0 && srcX < DISPLAY_WIDTH && 
+                srcY >= 0 && srcY < DISPLAY_HEIGHT) {
+                
+                int srcIndex = srcX + (srcY * DISPLAY_WIDTH);
+                int dstIndex = dstX + (dstY * DISPLAY_WIDTH);
+                
+                if (chip16->gfx2Buffer[srcIndex] == 1) {
+                    pixels[dstIndex] = pixelColor;
+                }
             }
         }
     }
@@ -185,17 +212,19 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     SDL_UpdateTexture(display->texture, NULL, pixels, DISPLAY_WIDTH * sizeof(uint32_t));
     
     // Renderizar con escala (SDL maneja el zoom automáticamente)
-    float currentZoom = chip16->zoom.currentZoom;
+
     SDL_Rect destRect = {
+        // .x = DISPLAY_WIDTH * (1.0f - currentZoom) / 2, // Centrar horizontalmente
+        // .y = DISPLAY_HEIGHT * (1.0f - currentZoom) / 2, // Centrar verticalmente
         .x = 0,
         .y = 0,
-        .w = (int)(DISPLAY_WIDTH * 10.0f * currentZoom),
-        .h = (int)(DISPLAY_HEIGHT * 10.0f * currentZoom)
+        .w = (int)(DISPLAY_WIDTH  * currentZoom),
+        .h = (int)(DISPLAY_HEIGHT * currentZoom)
     };
 
     // Renderizar
     SDL_RenderClear(display->renderer);
-    SDL_RenderCopy(display->renderer, display->texture, NULL, NULL);
+    SDL_RenderCopy(display->renderer, display->texture, NULL, &destRect);
     SDL_RenderPresent(display->renderer);
     
 

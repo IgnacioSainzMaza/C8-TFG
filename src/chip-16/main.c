@@ -56,8 +56,9 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     printf("DisplayInit completado\n"); 
+    const char* romPath = argv[1];
     
-    if (!chip16LoadROM(&chip16, argv[1])) {
+    if (!chip16LoadROM(&chip16, romPath)) {
         chip16AudioCleanup(&chip16);
         displayCleanup(&display);
         SDL_Quit();
@@ -72,7 +73,7 @@ int main(int argc, char** argv) {
     SDL_Event event;
     
     while (!quit) {
-        quit = inputProcess(&event, &chip16, &display);
+        quit = inputProcess(&event, &chip16, &display, romPath);  
         
         Uint32 currentTime = SDL_GetTicks();
         if (currentTime - lastTimerUpdate >= 16) {
