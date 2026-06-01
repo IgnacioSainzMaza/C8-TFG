@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     Display display;
     memset(&chip16, 0, sizeof(Chip16));
     chip16Init(&chip16);
-
+    printf("Chip16Init completado\n");  // <- NUEVA LÍNEA
     if (chip16.config.enableSound) {
     if (!chip16AudioInit(&chip16)) {
         fprintf(stderr, "Advertencia: audio no disponible\n");
@@ -51,9 +51,11 @@ int main(int argc, char** argv) {
     }
     
     if (!displayInit(&display, title)) {
+        printf("Error en displayInit\n");  // <- NUEVA LÍNEA
         SDL_Quit();
         return EXIT_FAILURE;
     }
+    printf("DisplayInit completado\n"); 
     
     if (!chip16LoadROM(&chip16, argv[1])) {
         chip16AudioCleanup(&chip16);

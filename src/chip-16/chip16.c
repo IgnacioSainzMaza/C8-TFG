@@ -58,6 +58,9 @@ void chip16Init(Chip16 *chip16)
     chip16->currentEffect = EFFECT_NONE;
     chip16->effectTimer = 0;
     chip16->colorIndex = 0;
+    chip16->zoom.currentZoom = 1.0f;
+    chip16->zoom.zoomInTimer = 0;
+    chip16->zoom.zoomOutTimer = 0;
 
     // Cargar fuente en memoria
     memcpy(chip16->memory, chip16_fontset, FONTSET_SIZE);
@@ -132,6 +135,30 @@ void chip16UpdateTimers(Chip16 *chip16)
             chip16->config.beepState.active = false;
             SDL_UnlockAudioDevice(chip16->config.beepState.dev);
         }
+    }
+
+    // Zoom in
+    if (chip16->zoom.zoomInTimer > 0) {
+        chip16->zoom.zoomInTimer--;
+        chip16->zoom.currentZoom += ZOOM_SPEED;
+        
+        if (chip16->zoom.currentZoom > ZOOM_MAX) {
+            chip16->zoom.currentZoom = ZOOM_MAX;
+            chip16->zoom.zoomInTimer = 0;
+        }
+        chip16->drawFlag = true;
+    }
+    
+    // Zoom out
+    if (chip16->zoom.zoomOutTimer > 0) {
+        chip16->zoom.zoomOutTimer--;
+        chip16->zoom.currentZoom -= ZOOM_SPEED;
+        
+        if (chip16->zoom.currentZoom < ZOOM_MIN) {
+            chip16->zoom.currentZoom = ZOOM_MIN;
+            chip16->zoom.zoomOutTimer = 0;
+        }
+        chip16->drawFlag = true;
     }
 }
 

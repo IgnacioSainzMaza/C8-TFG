@@ -30,6 +30,11 @@
 #define AUDIO_FREQUENCY   440.0 // Frecuencia de la nota A4 (La4) para el sonido del buzzer
 #define AUDIO_VOLUME      28000 // Volumen del sonido (ajustable entre 0 y 32767)
 
+// Configuración de zoom
+#define ZOOM_SPEED 0.1f // Velocidad de zoom (ajustable)
+#define ZOOM_MIN 1.0f // Zoom mínimo (1x)
+#define ZOOM_MAX 5.0f // Zoom máximo (5x)
+
 
 // Niveles de depuración
 typedef enum {
@@ -71,6 +76,11 @@ typedef struct {
     bool     active;
 } BeepState;
 
+typedef struct {
+    float currentZoom;      // Zoom actual (1.0 - 4.0)
+    uint8_t zoomInTimer;    // Contador para zoom in (0-255)
+    uint8_t zoomOutTimer;   // Contador para zoom out (0-255)
+} ZoomState;
 
 // Configuración global
 typedef struct {

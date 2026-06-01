@@ -16,6 +16,7 @@ bool inputProcess(SDL_Event* event, Chip16* chip16, Display* display) {
                 } else if (event->key.keysym.sym == SDLK_F1) {
                     // Reiniciar emulador
                     chip16Init(chip16);
+                    chip16->drawFlag = true;
                     return false;  // Continuar ejecución
                 } 
                 else if (event->key.keysym.sym == SDLK_F2) {
@@ -32,6 +33,21 @@ bool inputProcess(SDL_Event* event, Chip16* chip16, Display* display) {
                 else if (event->key.keysym.sym == SDLK_F3) {
                     // Toggle del modo ventana dual
                     displayToggleDualWindow(display, chip16);
+                }
+
+                else if (event->key.keysym.sym == SDLK_F4) {
+                    // Toggle de zoom progresivo
+                    if (chip16->zoom.zoomInTimer > 0 || chip16->zoom.zoomOutTimer > 0) {
+                        // Si hay zoom en proceso, cancela y vuelve a 1.0
+                        chip16->zoom.zoomInTimer = 0;
+                        chip16->zoom.zoomOutTimer = 0;
+                        chip16->zoom.currentZoom = 1.0f;
+                        chip16->drawFlag = true; 
+                    } else {
+                        // Inicia zoom in
+                        chip16->zoom.zoomInTimer = 255;  // ~4.25 segundos @ 60Hz
+                        chip16->drawFlag = true; 
+                    }
                 }
 
                 else {

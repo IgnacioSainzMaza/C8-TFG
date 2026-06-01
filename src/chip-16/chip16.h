@@ -26,6 +26,7 @@ static const uint8_t chip16_fontset[FONTSET_SIZE] = {
 };
 
 
+
 typedef struct {
     uint16_t opcode;              // Opcode actual
     uint8_t memory[MEMORY_SIZE];  // Memoria del sistema
@@ -47,6 +48,7 @@ typedef struct {
     GraphicsEffects currentEffect; // Efecto gráfico actual
     uint8_t effectTimer; // Temporizador para efectos gráficos
     uint8_t colorIndex; // Índice del color actual en el ciclo de colores
+    ZoomState zoom; // Estado del zoom
 } Chip16;
 
 // Funciones principales del emulador

@@ -160,21 +160,18 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     // Determinar el color del pixel
     uint32_t pixelColor;
     if (chip16->currentEffect == EFFECT_COLOR_CYCLE) {
-        // Si el efecto está activo, usar el color de la paleta
         pixelColor = COLOR_PALETTE[chip16->colorIndex];
     } else if (colorArg != NULL) {
-        // Si no hay efecto pero hay argumento de línea de comandos
         pixelColor = strtoul(colorArg, NULL, 16);
     } else {
-        // Color por defecto
         pixelColor = chip16->config.pixelColor;
     }
     
     // Crear buffer de pixels para la textura
     uint32_t pixels[DISPLAY_WIDTH * DISPLAY_HEIGHT];
     memset(pixels, 0, sizeof(pixels));  // Limpiar buffer con negro
-    
-    // Convertir el estado de gfx[] a pixeles con color
+
+    // Convertir framebuffer a píxeles (sin zoom en el array)
     for (int y = 0; y < DISPLAY_HEIGHT; y++) {
         for (int x = 0; x < DISPLAY_WIDTH; x++) {
             int index = x + (y * DISPLAY_WIDTH);
@@ -187,6 +184,15 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     // Actualizar textura con nuevos datos
     SDL_UpdateTexture(display->texture, NULL, pixels, DISPLAY_WIDTH * sizeof(uint32_t));
     
+    // Renderizar con escala (SDL maneja el zoom automáticamente)
+    float currentZoom = chip16->zoom.currentZoom;
+    SDL_Rect destRect = {
+        .x = 0,
+        .y = 0,
+        .w = (int)(DISPLAY_WIDTH * 10.0f * currentZoom),
+        .h = (int)(DISPLAY_HEIGHT * 10.0f * currentZoom)
+    };
+
     // Renderizar
     SDL_RenderClear(display->renderer);
     SDL_RenderCopy(display->renderer, display->texture, NULL, NULL);
