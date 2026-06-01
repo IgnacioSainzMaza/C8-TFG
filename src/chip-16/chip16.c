@@ -763,6 +763,7 @@ void chip16Cycle(Chip16 *chip16)
             break;
 
         case 0x04: // FX04: ZOOMIN — zoom in a ZOOM_MAX, pan destino en V[y] y V[y+1]
+        {
             float targetZoom = ZOOM_MAX;
             int maxPanX = DISPLAY_WIDTH  - (int)(DISPLAY_WIDTH  / targetZoom);
             int maxPanY = DISPLAY_HEIGHT - (int)(DISPLAY_HEIGHT / targetZoom);
@@ -781,6 +782,7 @@ void chip16Cycle(Chip16 *chip16)
             chip16->zoom.zoomOutTimer = 0;
             chip16->zoom.zoomInTimer  = 255;
             chip16->drawFlag          = true;
+        }
             break;
 
         case 0x05: // FX05: ZOOMOUT — zoom out a ZOOM_MIN, resetea pan a (0,0)
@@ -790,7 +792,7 @@ void chip16Cycle(Chip16 *chip16)
             chip16->zoom.zoomOutTimer = 255;
             chip16->drawFlag          = true;
             break;
-            
+
         case 0x07: // FX07: Establecer VX = valor del delay timer
             chip16->V[x] = chip16->delayTimer;
             break;
