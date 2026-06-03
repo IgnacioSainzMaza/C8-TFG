@@ -204,13 +204,11 @@ void displayRender(Display* display, Chip16* chip16, const char* colorArg) {
     // Actualizar textura con nuevos datos
     SDL_UpdateTexture(display->texture, NULL, pixels, DISPLAY_WIDTH * sizeof(uint32_t));
     
-    // Renderizar con escala (SDL maneja el zoom automáticamente)
-
     SDL_Rect destRect = {
         .x = 0,
         .y = 0,
-        .w = DISPLAY_WIDTH,   // siempre 64 — SDL se encarga de escalar a ventana
-        .h = DISPLAY_HEIGHT,  // siempre 32
+        .w = DISPLAY_WIDTH,  
+        .h = DISPLAY_HEIGHT,  
     };
 
     // Renderizar

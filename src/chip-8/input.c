@@ -1,7 +1,7 @@
 #include "input.h"
 
 // Procesar eventos de entrada
-bool inputProcess(SDL_Event* event, Chip8* chip8) {
+bool inputProcess(SDL_Event* event, Chip8* chip8, const char* romPath) {
     bool quit = false;
     
     while (SDL_PollEvent(event)) {
@@ -16,6 +16,8 @@ bool inputProcess(SDL_Event* event, Chip8* chip8) {
                 } else if (event->key.keysym.sym == SDLK_F1) {
                     // Reiniciar emulador
                     chip8Init(chip8);
+                    chip8LoadROM(chip8, romPath);  // Cargar ROM predeterminada
+                    chip8->drawFlag = true;
                     return false;  // Continuar ejecución
                 } else {
                     // Mapear otras teclas al teclado CHIP-8

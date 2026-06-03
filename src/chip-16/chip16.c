@@ -238,7 +238,7 @@ void chip16ProcessEffects(Chip16 *chip16)
         // ¿Es momento de cambiar de color?
         if (chip16->effectTimer >= COLOR_CYCLE_FRAMES)
         {
-            chip16->effectTimer = 0; // Reiniciar timer
+            chip16->effectTimer = 0; // Reiniciar timer 
 
             // Avanzar al siguiente color (con wrap-around)
             chip16->colorIndex = (chip16->colorIndex + 1) % COLOR_PALETTE_SIZE;

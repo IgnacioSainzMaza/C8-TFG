@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>          // <- AÑADIR
+#include <string.h>         
 #include <SDL2/SDL.h>
 #include "chip16.h"
 #include "display.h"
@@ -23,7 +23,6 @@ int main(int argc, char** argv) {
     Display display;
     memset(&chip16, 0, sizeof(Chip16));
     chip16Init(&chip16);
-    printf("Chip16Init completado\n");  // <- NUEVA LÍNEA
     if (chip16.config.enableSound) {
     if (!chip16AudioInit(&chip16)) {
         fprintf(stderr, "Advertencia: audio no disponible\n");
@@ -44,14 +43,14 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Leer argumento de color (argv[2], opcional)  // <- AÑADIR ESTE BLOQUE
+    // Leer argumento de color (argv[2], opcional)  // 
     const char* colorArg = NULL;
     if (argc > 2 && strcmp(argv[2], "-") != 0) {
         colorArg = argv[2];
     }
     
     if (!displayInit(&display, title)) {
-        printf("Error en displayInit\n");  // <- NUEVA LÍNEA
+        printf("Error en displayInit\n");  // 
         SDL_Quit();
         return EXIT_FAILURE;
     }
